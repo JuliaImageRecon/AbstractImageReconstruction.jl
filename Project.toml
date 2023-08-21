@@ -1,7 +1,13 @@
 name = "AbstractImageReconstruction"
-uuid = "4e3681fe-b8ba-4a0e-914d-5f443b689961"
-authors = ["Tobias Knopp <tobias.knopp@tuhh.de> and contributors"]
-version = "1.0.0-DEV"
+uuid = "a4b4fdbf-6459-4ec9-990d-77e1fa24a91b"
+authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
+version = "0.1.0"
+
+[deps]
+Scratch = "6c6a2e73-6563-6170-7368-637461726353"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
+RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
 
 [compat]
 julia = "1"
@@ -11,3 +17,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
+
+
+
+
