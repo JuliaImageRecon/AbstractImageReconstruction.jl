@@ -10,7 +10,7 @@ ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
 RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
 
 [compat]
-julia = "1"
+julia = "1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
