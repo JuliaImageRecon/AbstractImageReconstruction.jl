@@ -11,6 +11,10 @@ RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
 
 [compat]
 julia = "1.6"
+Scratch = "1.2"
+TOML = "1"
+ThreadPools = "2.1"
+RegularizedLeastSquares = "0.10, 0.11"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
