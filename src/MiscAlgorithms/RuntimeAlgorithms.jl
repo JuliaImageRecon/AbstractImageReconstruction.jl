@@ -1,10 +1,10 @@
 export ThreadPinnedAlgorithm, ThreadPinnedAlgorithmParameter
-Base.@kwdef struct ThreadPinnedAlgorithmParameter <: AbstractReconstructionAlgorithmParameter
+Base.@kwdef struct ThreadPinnedAlgorithmParameter <: AbstractImageReconstructionParameter
   threadID::Int64
-  algo::AbstractReconstructionAlgorithm
+  algo::AbstractImageReconstructionAlgorithm
 end
 
-mutable struct ThreadPinnedAlgorithm <: AbstractReconstructionAlgorithm
+mutable struct ThreadPinnedAlgorithm <: AbstractImageReconstructionAlgorithm
   params::ThreadPinnedAlgorithmParameter
   recoTask::Union{Nothing,Task}
   taskLock::ReentrantLock

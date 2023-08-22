@@ -5,12 +5,12 @@ abstract type AbstractPlanListener end
 abstract type TransientListener <: AbstractPlanListener end
 abstract type SerializableListener <: AbstractPlanListener end
 
-mutable struct RecoPlan{T<:Union{AbstractReconstructionAlgorithmParameter, AbstractReconstructionAlgorithm}}
+mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameter, AbstractImageReconstructionAlgorithm}}
   parent::Union{Nothing, RecoPlan}
   values::Dict{Symbol, Any}
   listeners::Dict{Symbol, Vector{AbstractPlanListener}}
   setProperties::Dict{Symbol, Bool}
-  function RecoPlan(::Type{T}; kwargs...) where {T<:AbstractReconstructionAlgorithmParameter}
+  function RecoPlan(::Type{T}; kwargs...) where {T<:AbstractImageReconstructionParameter}
     dict = Dict{Symbol, Any}()
     listeners = Dict{Symbol, Vector{AbstractPlanListener}}()
     setProperties = Dict{Symbol, Bool}()
@@ -23,7 +23,7 @@ mutable struct RecoPlan{T<:Union{AbstractReconstructionAlgorithmParameter, Abstr
     setvalues!(plan, kwargs...)
     return plan
   end
-  function RecoPlan(::Type{T}) where {T<:AbstractReconstructionAlgorithm}
+  function RecoPlan(::Type{T}) where {T<:AbstractImageReconstructionAlgorithm}
     dict = Dict{Symbol, Any}()
     listeners = Dict{Symbol, Vector{AbstractPlanListener}}()
     setProperties = Dict{Symbol, Bool}()
@@ -34,7 +34,7 @@ mutable struct RecoPlan{T<:Union{AbstractReconstructionAlgorithmParameter, Abstr
   end  
 end
 
-function setvalues!(plan::RecoPlan{T}; kwargs...) where {T<:AbstractReconstructionAlgorithmParameter}
+function setvalues!(plan::RecoPlan{T}; kwargs...) where {T<:AbstractImageReconstructionParameter}
   kwargs = values(kwargs)
   for field in propertynames(plan)
     if haskey(kwargs, field)
@@ -119,7 +119,7 @@ end
 Base.ismissing(plan::RecoPlan, name::Symbol) = ismissing(getfield(plan, :values)[name])
 
 export setAll!
-function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractReconstructionAlgorithmParameter}
+function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReconstructionParameter}
   fields = getfield(plan, :values)
   nestedPlans = filter(entry -> isa(last(entry), RecoPlan), fields)
   for (key, nested) in nestedPlans
@@ -133,7 +133,7 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractReconstru
     end
   end
 end
-setAll!(plan::RecoPlan{<:AbstractReconstructionAlgorithm}, name::Symbol, x) = setAll!(plan.parameter, name, x)
+setAll!(plan::RecoPlan{<:AbstractImageReconstructionAlgorithm}, name::Symbol, x) = setAll!(plan.parameter, name, x)
 function setAll!(plan; kwargs...)
   for key in keys(kwargs)
     setAll!(plan, key, kwargs[key])
@@ -144,21 +144,21 @@ setAll!(plan::RecoPlan, dict::Dict{String, Any}) = setAll!(plan, Dict{Symbol, An
 
 
 export types, type
-types(::RecoPlan{T}) where {T<:AbstractReconstructionAlgorithmParameter} = fieldtypes(T)
-type(::RecoPlan{T}, name::Symbol) where {T<:AbstractReconstructionAlgorithmParameter} = fieldtype(T, name)
+types(::RecoPlan{T}) where {T<:AbstractImageReconstructionParameter} = fieldtypes(T)
+type(::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionParameter} = fieldtype(T, name)
 
-function type(plan::RecoPlan{T}, name::Symbol) where {T<:AbstractReconstructionAlgorithm}
+function type(plan::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionAlgorithm}
   if name == :parameter
     return RecoPlan
   else
     error("type $(typeof(plan)) has no field $name")
   end
 end
-types(::RecoPlan{T}) where {T<:AbstractReconstructionAlgorithm} = [type(plan, name) for name in propertynames(plan)]
+types(::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm} = [type(plan, name) for name in propertynames(plan)]
 
 
 export clear!
-function clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractReconstructionAlgorithmParameter}
+function clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImageReconstructionParameter}
   dict = getfield(plan, :values)
   set = getfield(plan, :setProperties)
   for key in keys(dict)
@@ -172,7 +172,7 @@ function clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractReco
   end
   return plan
 end
-clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractReconstructionAlgorithm} = clear!(plan.parameter, preserve)
+clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImageReconstructionAlgorithm} = clear!(plan.parameter, preserve)
 
 export getlisteners, addListener!, removeListener!
 getlisteners(plan::RecoPlan, field::Symbol) = getfield(plan, :listeners)[field]
@@ -187,7 +187,7 @@ function removeListener!(plan::RecoPlan, field::Symbol, listener::AbstractPlanLi
 end
 
 export build
-function build(plan::RecoPlan{T}) where {T<:AbstractReconstructionAlgorithmParameter}
+function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionParameter}
   fields = copy(getfield(plan, :values))
   nestedPlans = filter(entry -> isa(last(entry), RecoPlan), fields)
   for (name, nested) in nestedPlans
@@ -196,18 +196,18 @@ function build(plan::RecoPlan{T}) where {T<:AbstractReconstructionAlgorithmParam
   fields = filter(entry -> !ismissing(last(entry)), fields)
   return T(;fields...)
 end
-function build(plan::RecoPlan{T}) where {T<:AbstractReconstructionAlgorithm}
+function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm}
   parameter = build(plan[:parameter])
   return T(parameter)
 end
 
 export toPlan
-function toPlan(param::AbstractReconstructionAlgorithmParameter)
+function toPlan(param::AbstractImageReconstructionParameter)
   args = Dict{Symbol, Any}()
   plan = RecoPlan(typeof(param))
   for field in fieldnames(typeof(param))
     value = getproperty(param, field)
-    if typeof(value) <: AbstractReconstructionAlgorithmParameter || typeof(value) <: AbstractReconstructionAlgorithm
+    if typeof(value) <: AbstractImageReconstructionParameter || typeof(value) <: AbstractImageReconstructionAlgorithm
       args[field] = toPlan(plan, value)
     else
       args[field] = value
@@ -221,9 +221,9 @@ function toPlan(parent::RecoPlan, x)
   parent!(plan, parent)
   return plan
 end 
-toPlan(algo::AbstractReconstructionAlgorithm) = toPlan(algo, parameter(algo))
-toPlan(algo::AbstractReconstructionAlgorithm, params::AbstractReconstructionAlgorithmParameter) = toPlan(typeof(algo), params) 
-function toPlan(::Type{T}, params::AbstractReconstructionAlgorithmParameter) where {T<:AbstractReconstructionAlgorithm}
+toPlan(algo::AbstractImageReconstructionAlgorithm) = toPlan(algo, parameter(algo))
+toPlan(algo::AbstractImageReconstructionAlgorithm, params::AbstractImageReconstructionParameter) = toPlan(typeof(algo), params) 
+function toPlan(::Type{T}, params::AbstractImageReconstructionParameter) where {T<:AbstractImageReconstructionAlgorithm}
   plan = RecoPlan(T)
   plan[:parameter] = toPlan(plan, params)
   return plan
@@ -305,19 +305,19 @@ function loadPlan!(dict::Dict{String, Any}, modDict)
     error("Not implemented yet")
   end
 end
-function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractReconstructionAlgorithm}
+function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionAlgorithm}
   temp = loadPlan!(dict["parameter"], modDict)
   parent!(temp, plan)
   setvalue!(plan, :parameter, temp)
   return plan
 end
-function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractReconstructionAlgorithmParameter}
+function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionParameter}
   for name in propertynames(plan)
     t = type(plan, name)
     param = missing
     key = string(name)
     if haskey(dict, key)
-      if t <: AbstractReconstructionAlgorithm || t <: AbstractReconstructionAlgorithmParameter
+      if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameter
         param = loadPlan!(dict[key], modDict)
         parent!(param, plan)
       else
@@ -328,7 +328,7 @@ function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T
   end
   return plan
 end
-loadPlanValue(parent::Type{T}, field::Symbol, type, value, modDict) where T <: AbstractReconstructionAlgorithmParameter = loadPlanValue(type, value, modDict)
+loadPlanValue(parent::Type{T}, field::Symbol, type, value, modDict) where T <: AbstractImageReconstructionParameter = loadPlanValue(type, value, modDict)
 # Type{<:T} where {T}
 function loadPlanValue(t::UnionAll, value::Dict, modDict)
   if value[TYPE_TAG] == string(Type)
@@ -381,10 +381,10 @@ function specializeType(t::Union{DataType, UnionAll}, value::Dict, modDict)
 end
 
 loadListeners!(plan, dict, modDict) = loadListeners!(plan, plan, dict, modDict)
-function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractReconstructionAlgorithm}
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionAlgorithm}
   loadListeners!(root, plan.parameter, dict["parameter"], modDict)
 end
-function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractReconstructionAlgorithmParameter}
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionParameter}
   if haskey(dict, ".listener")
     for (property, listenerDicts) in dict[".listener"]
       for listenerDict in listenerDicts

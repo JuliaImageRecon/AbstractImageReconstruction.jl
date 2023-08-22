@@ -1,5 +1,5 @@
 export LinkedFieldListener
-struct LinkedFieldListener{T<:AbstractReconstructionAlgorithmParameter} <: SerializableListener
+struct LinkedFieldListener{T<:AbstractImageReconstructionParameter} <: SerializableListener
   plan::RecoPlan{T}
   field::Symbol
   fn::Function

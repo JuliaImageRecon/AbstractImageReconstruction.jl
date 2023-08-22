@@ -117,13 +117,13 @@ function toKwargs!(dict, value; flatten::Vector{DataType} = DataType[], ignore::
   return dict
 end
 
-function toKwargs(v::AbstractReconstructionAlgorithmParameter; flatten::Union{Vector{DataType}, Nothing} = nothing, kwargs...)
+function toKwargs(v::AbstractImageReconstructionParameter; flatten::Union{Vector{DataType}, Nothing} = nothing, kwargs...)
   dict = Dict{Symbol, Any}()
-  return toKwargs!(dict, v; flatten = isnothing(flatten) ? [AbstractReconstructionAlgorithmParameter] : flatten, kwargs...)
+  return toKwargs!(dict, v; flatten = isnothing(flatten) ? [AbstractImageReconstructionParameter] : flatten, kwargs...)
 end
-function toKwargs(v::Vector{<:AbstractReconstructionAlgorithmParameter}; flatten::Union{Vector{DataType}, Nothing} = nothing, kwargs...)
+function toKwargs(v::Vector{<:AbstractImageReconstructionParameter}; flatten::Union{Vector{DataType}, Nothing} = nothing, kwargs...)
   dict = Dict{Symbol, Any}()
-  flatten = isnothing(flatten) ? [AbstractReconstructionAlgorithmParameter] : flatten
+  flatten = isnothing(flatten) ? [AbstractImageReconstructionParameter] : flatten
   foreach(i-> toKwargs!(dict, i; flatten = flatten, kwargs...), v)
   return dict
 end

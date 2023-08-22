@@ -1,11 +1,11 @@
 export SimilarAlgorithm, SimilarAlgorithmParameter
-Base.@kwdef struct SimilarAlgorithmParameter <: AbstractReconstructionAlgorithmParameter
-  algo::AbstractReconstructionAlgorithm
+Base.@kwdef struct SimilarAlgorithmParameter <: AbstractImageReconstructionParameter
+  algo::AbstractImageReconstructionAlgorithm
 end
 
-mutable struct SimilarAlgorithm <: AbstractReconstructionAlgorithm
+mutable struct SimilarAlgorithm <: AbstractImageReconstructionAlgorithm
   params::SimilarAlgorithmParameter
-  algo::AbstractReconstructionAlgorithm
+  algo::AbstractImageReconstructionAlgorithm
   outputChannel::Channel{Any}
 end
 
