@@ -31,10 +31,5 @@ function process(algo::AbstractImageReconstructionAlgorithm, data, params::Vecto
   return val
 end
 
-export similar
-similar(algo::AbstractImageReconstructionAlgorithm, data) = error("$(typeof(algo)) must implement similar")
-similar(algo::AbstractImageReconstructionAlgorithm, data, param::AbstractImageReconstructionParameter) = similar(typeof(algo), data, param)
-similar(algoT::Type{T}, data, param::AbstractImageReconstructionParameter) where {T<:AbstractImageReconstructionAlgorithm} = deepcopy(param)
-
 export parameter
 parameter(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement parameter")
