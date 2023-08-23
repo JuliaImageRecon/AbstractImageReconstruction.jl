@@ -5,6 +5,8 @@ abstract type AbstractPlanListener end
 abstract type TransientListener <: AbstractPlanListener end
 abstract type SerializableListener <: AbstractPlanListener end
 
+const LISTENER_TAG = "_listener"
+
 mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameter, AbstractImageReconstructionAlgorithm}}
   parent::Union{Nothing, RecoPlan}
   values::Dict{Symbol, Any}
@@ -14,7 +16,7 @@ mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameter, AbstractI
     dict = Dict{Symbol, Any}()
     listeners = Dict{Symbol, Vector{AbstractPlanListener}}()
     setProperties = Dict{Symbol, Bool}()
-    for field in fieldnames(T)
+    for field in filter(f -> !startswith(string(f), "_"), fieldnames(T))
       dict[field] =  missing
       listeners[field] = AbstractPlanListener[]
       setProperties[field] = false
@@ -248,7 +250,7 @@ function addDictValue!(dict, value::RecoPlan)
       end
     end
     if !isempty(listenerDict) 
-      dict[".listener"] = listenerDict
+      dict[LISTENER_TAG] = listenerDict
     end
   end
   return dict
@@ -359,13 +361,18 @@ function loadPlanValue(t::Union, value::Dict, modDict)
   type = isnothing(idx) ? t : types[idx]
   return loadPlanValue(type, value[VALUE_TAG], modDict)
 end
-loadPlanValue(t::DataType, value::Dict, modDict) = fromTOML(specializeType(t, value, modDict), value)
+function loadPlanValue(t::DataType, value::Dict, modDict)
+  s = specializeType(t, value, modDict)
+  @show s
+  @show value 
+  fromTOML(s, value)
+end
 loadPlanValue(t, value, modDict) = fromTOML(t, value)
 
 function tomlType(dict::Dict, modDict; prefix::String = "")
-  if haskey(dict, ".$(prefix)module") && haskey(dict, ".$(prefix)type")
-    mod = dict[".$(prefix)module"]
-    type = dict[".$(prefix)type"]
+  if haskey(dict, "_$(prefix)module") && haskey(dict, "_$(prefix)type")
+    mod = dict["_$(prefix)module"]
+    type = dict["_$(prefix)type"]
     if haskey(modDict, mod) && haskey(modDict[mod], type)
       return modDict[mod][type]
     end

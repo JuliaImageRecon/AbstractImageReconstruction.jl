@@ -1,11 +1,11 @@
 export toTOML, toDict, toDict!, toDictValue, toKwargs, toKwargs!, fromKwargs
 
 # TODO adapt tomlType
-const MODULE_TAG = ".module"
-const TYPE_TAG = ".type"
-const VALUE_TAG = ".value"
-const UNION_TYPE_TAG = ".uniontype"
-const UNION_MODULE_TAG = ".unionmodule"
+const MODULE_TAG = "_module"
+const TYPE_TAG = "_type"
+const VALUE_TAG = "_value"
+const UNION_TYPE_TAG = "_uniontype"
+const UNION_MODULE_TAG = "_unionmodule"
 
 function toTOML(fileName::AbstractString, value)
   open(fileName, "w") do io
