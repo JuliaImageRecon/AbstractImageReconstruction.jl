@@ -1,5 +1,5 @@
 export ThreadPinnedAlgorithm, ThreadPinnedAlgorithmParameter
-Base.@kwdef struct ThreadPinnedAlgorithmParameter <: AbstractImageReconstructionParameter
+Base.@kwdef struct ThreadPinnedAlgorithmParameter <: AbstractImageReconstructionParameters
   threadID::Int64
   algo::AbstractImageReconstructionAlgorithm
 end

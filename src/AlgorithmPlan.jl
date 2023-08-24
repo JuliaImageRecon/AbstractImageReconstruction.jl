@@ -7,12 +7,12 @@ abstract type SerializableListener <: AbstractPlanListener end
 
 const LISTENER_TAG = "_listener"
 
-mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameter, AbstractImageReconstructionAlgorithm}}
+mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameters, AbstractImageReconstructionAlgorithm}}
   parent::Union{Nothing, RecoPlan}
   values::Dict{Symbol, Any}
   listeners::Dict{Symbol, Vector{AbstractPlanListener}}
   setProperties::Dict{Symbol, Bool}
-  function RecoPlan(::Type{T}; kwargs...) where {T<:AbstractImageReconstructionParameter}
+  function RecoPlan(::Type{T}; kwargs...) where {T<:AbstractImageReconstructionParameters}
     dict = Dict{Symbol, Any}()
     listeners = Dict{Symbol, Vector{AbstractPlanListener}}()
     setProperties = Dict{Symbol, Bool}()
@@ -36,7 +36,7 @@ mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameter, AbstractI
   end  
 end
 
-function setvalues!(plan::RecoPlan{T}; kwargs...) where {T<:AbstractImageReconstructionParameter}
+function setvalues!(plan::RecoPlan{T}; kwargs...) where {T<:AbstractImageReconstructionParameters}
   kwargs = values(kwargs)
   for field in propertynames(plan)
     if haskey(kwargs, field)
@@ -121,7 +121,7 @@ end
 Base.ismissing(plan::RecoPlan, name::Symbol) = ismissing(getfield(plan, :values)[name])
 
 export setAll!
-function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReconstructionParameter}
+function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReconstructionParameters}
   fields = getfield(plan, :values)
   nestedPlans = filter(entry -> isa(last(entry), RecoPlan), fields)
   for (key, nested) in nestedPlans
@@ -146,8 +146,8 @@ setAll!(plan::RecoPlan, dict::Dict{String, Any}) = setAll!(plan, Dict{Symbol, An
 
 
 export types, type
-types(::RecoPlan{T}) where {T<:AbstractImageReconstructionParameter} = fieldtypes(T)
-type(::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionParameter} = fieldtype(T, name)
+types(::RecoPlan{T}) where {T<:AbstractImageReconstructionParameters} = fieldtypes(T)
+type(::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionParameters} = fieldtype(T, name)
 
 function type(plan::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionAlgorithm}
   if name == :parameter
@@ -160,7 +160,7 @@ types(::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm} = [type(pla
 
 
 export clear!
-function clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImageReconstructionParameter}
+function clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImageReconstructionParameters}
   dict = getfield(plan, :values)
   set = getfield(plan, :setProperties)
   for key in keys(dict)
@@ -189,7 +189,7 @@ function removeListener!(plan::RecoPlan, field::Symbol, listener::AbstractPlanLi
 end
 
 export build
-function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionParameter}
+function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionParameters}
   fields = copy(getfield(plan, :values))
   nestedPlans = filter(entry -> isa(last(entry), RecoPlan), fields)
   for (name, nested) in nestedPlans
@@ -204,12 +204,12 @@ function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm
 end
 
 export toPlan
-function toPlan(param::AbstractImageReconstructionParameter)
+function toPlan(param::AbstractImageReconstructionParameters)
   args = Dict{Symbol, Any}()
   plan = RecoPlan(typeof(param))
   for field in fieldnames(typeof(param))
     value = getproperty(param, field)
-    if typeof(value) <: AbstractImageReconstructionParameter || typeof(value) <: AbstractImageReconstructionAlgorithm
+    if typeof(value) <: AbstractImageReconstructionParameters || typeof(value) <: AbstractImageReconstructionAlgorithm
       args[field] = toPlan(plan, value)
     else
       args[field] = value
@@ -224,8 +224,8 @@ function toPlan(parent::RecoPlan, x)
   return plan
 end 
 toPlan(algo::AbstractImageReconstructionAlgorithm) = toPlan(algo, parameter(algo))
-toPlan(algo::AbstractImageReconstructionAlgorithm, params::AbstractImageReconstructionParameter) = toPlan(typeof(algo), params) 
-function toPlan(::Type{T}, params::AbstractImageReconstructionParameter) where {T<:AbstractImageReconstructionAlgorithm}
+toPlan(algo::AbstractImageReconstructionAlgorithm, params::AbstractImageReconstructionParameters) = toPlan(typeof(algo), params) 
+function toPlan(::Type{T}, params::AbstractImageReconstructionParameters) where {T<:AbstractImageReconstructionAlgorithm}
   plan = RecoPlan(T)
   plan[:parameter] = toPlan(plan, params)
   return plan
@@ -313,13 +313,13 @@ function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T
   setvalue!(plan, :parameter, temp)
   return plan
 end
-function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionParameter}
+function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionParameters}
   for name in propertynames(plan)
     t = type(plan, name)
     param = missing
     key = string(name)
     if haskey(dict, key)
-      if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameter
+      if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameters
         param = loadPlan!(dict[key], modDict)
         parent!(param, plan)
       else
@@ -330,7 +330,7 @@ function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T
   end
   return plan
 end
-loadPlanValue(parent::Type{T}, field::Symbol, type, value, modDict) where T <: AbstractImageReconstructionParameter = loadPlanValue(type, value, modDict)
+loadPlanValue(parent::Type{T}, field::Symbol, type, value, modDict) where T <: AbstractImageReconstructionParameters = loadPlanValue(type, value, modDict)
 # Type{<:T} where {T}
 function loadPlanValue(t::UnionAll, value::Dict, modDict)
   if value[TYPE_TAG] == string(Type)
@@ -361,12 +361,7 @@ function loadPlanValue(t::Union, value::Dict, modDict)
   type = isnothing(idx) ? t : types[idx]
   return loadPlanValue(type, value[VALUE_TAG], modDict)
 end
-function loadPlanValue(t::DataType, value::Dict, modDict)
-  s = specializeType(t, value, modDict)
-  @show s
-  @show value 
-  fromTOML(s, value)
-end
+loadPlanValue(t::DataType, value::Dict, modDict) = fromTOML(specializeType(t, value, modDict), value)
 loadPlanValue(t, value, modDict) = fromTOML(t, value)
 
 function tomlType(dict::Dict, modDict; prefix::String = "")
@@ -391,7 +386,7 @@ loadListeners!(plan, dict, modDict) = loadListeners!(plan, plan, dict, modDict)
 function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionAlgorithm}
   loadListeners!(root, plan.parameter, dict["parameter"], modDict)
 end
-function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionParameter}
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionParameters}
   if haskey(dict, ".listener")
     for (property, listenerDicts) in dict[".listener"]
       for listenerDict in listenerDicts
