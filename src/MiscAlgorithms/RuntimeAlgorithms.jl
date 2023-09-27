@@ -60,7 +60,7 @@ function put!(algo::RoundRobinProcessAlgorithm, innerAlgo::AbstractImageReconstr
   lock(algo.processLock) do
     threadNum = algo.threadNum
     task = algo.threadTasks[threadNum]
-    put!(algo.inputChannels[threadNum], (innerAlgo, params, inputs...))
+    put!(algo.inputChannels[threadNum], (innerAlgo, params, inputs))
     put!(algo.inputOrder, threadNum)
     if isnothing(task) || istaskdone(task)
       algo.threadTasks[threadNum] = @tspawnat algo.threads[threadNum] processInputs(algo, threadNum)
@@ -76,7 +76,7 @@ function processInputs(algo::RoundRobinProcessAlgorithm, threadNum)
     result = nothing
     try
       inner, params, inputs = take!(input)
-      result = process(inner, params, inputs)
+      result = process(inner, params, inputs...)
     catch e
       @error "Error in image processing thread $(algo.threads[threadNum])" exception=(e, catch_backtrace())
       result = e
