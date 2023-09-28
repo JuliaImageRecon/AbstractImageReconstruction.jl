@@ -99,6 +99,7 @@ function processInputs(algo::QueuedProcessAlgorithm, threadNum, args...)
   end
   put!(output, result)
 end
+process(fn::Function, args...) = fn(args...)
 
 function take!(algo::QueuedProcessAlgorithm)
   outputOrder = take!(algo.inputOrder)
