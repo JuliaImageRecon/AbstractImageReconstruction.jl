@@ -45,47 +45,62 @@ end
 export AbstractMultiThreadedProcessing
 abstract type AbstractMultiThreadedProcessing <: AbstractImageReconstructionAlgorithm end
 
-mutable struct RoundRobinProcessAlgorithm <: AbstractMultiThreadedProcessing
+mutable struct QueuedProcessAlgorithm <: AbstractMultiThreadedProcessing
   threads::Vector{Int64}
-  threadNum::Int64
   threadTasks::Vector{Union{Task, Nothing}}
-  inputChannels::Vector{Channel{Any}}
+  inputChannel::Channel{Any}
   inputOrder::Channel{Int64}
   outputChannels::Vector{Channel{Any}}
   processLock::ReentrantLock
 end
-RoundRobinProcessAlgorithm(threads::Vector{Int64}) = RoundRobinProcessAlgorithm(threads, 1, [nothing for i = 1:length(threads)], [Channel{Any}(Inf) for i = 1:length(threads)], Channel{Int64}(Inf), [Channel{Any}(Inf) for i = 1:length(threads)], ReentrantLock())
-RoundRobinProcessAlgorithm(threads::UnitRange) = RoundRobinProcessAlgorithm(collect(threads))
-function put!(algo::RoundRobinProcessAlgorithm, innerAlgo::AbstractImageReconstructionAlgorithm, params::AbstractImageReconstructionParameters, inputs...)
+QueuedProcessAlgorithm(threads::Vector{Int64}) = QueuedProcessAlgorithm(threads, [nothing for i = 1:length(threads)], Channel{Any}(Inf), Channel{Int64}(Inf), [Channel{Any}(Inf) for i = 1:length(threads)], ReentrantLock())
+QueuedProcessAlgorithm(threads::UnitRange) = QueuedProcessAlgorithm(collect(threads))
+function put!(algo::QueuedProcessAlgorithm, inputs...)
   lock(algo.processLock) do
-    threadNum = algo.threadNum
-    task = algo.threadTasks[threadNum]
-    put!(algo.inputChannels[threadNum], (innerAlgo, params, inputs))
-    put!(algo.inputOrder, threadNum)
-    if isnothing(task) || istaskdone(task)
-      algo.threadTasks[threadNum] = @tspawnat algo.threads[threadNum] processInputs(algo, threadNum)
+    threadNum = pickThread(algo)
+    if isnothing(threadNum)
+      put!(algo.inputChannel, inputs)
+    else
+      put!(algo.inputOrder, threadNum)
+      algo.threadTasks[threadNum] = @tspawnat algo.threads[threadNum] processThread(algo, threadNum, inputs...)
     end
-    algo.threadNum = mod1(algo.threadNum + 1, length(algo.threads)) 
   end
 end
 
-function processInputs(algo::RoundRobinProcessAlgorithm, threadNum)
-  input = algo.inputChannels[threadNum]
+function pickThread(algo::QueuedProcessAlgorithm)
+  choices = map(x -> isnothing(x) || istaskdone(x), algo.threadTasks)
+  return findfirst(choices)
+end
+function processThread(algo::QueuedProcessAlgorithm, threadNum, args...)
+  processInputs(algo, threadNum, args...)
+  while isready(algo.inputChannel)
+    args = nothing
+    lock(algo.processLock) do 
+      # Check that the channel wasn't emptied while waiting on the lock
+      if isready(algo.inputChannel)
+        args = take!(algo.inputChannel)
+      end
+    end
+    # Processing outside of lock to not block it
+    if !isnothing(args)
+      put!(algo.inputOrder, threadNum)
+      processInputs(algo, threadNum, args...)
+    end
+  end
+end
+function processInputs(algo::QueuedProcessAlgorithm, threadNum, args...)
   output = algo.outputChannels[threadNum]
-  while isready(input)
-    result = nothing
-    try
-      inner, params, inputs = take!(input)
-      result = process(inner, params, inputs...)
-    catch e
-      @error "Error in image processing thread $(algo.threads[threadNum])" exception=(e, catch_backtrace())
-      result = e
-    end
-    put!(output, result)
+  result = nothing
+  try
+    result = process(args...)
+  catch e
+    @error "Error in image processing thread $(algo.threads[threadNum])" exception=(e, catch_backtrace())
+    result = e
   end
+  put!(output, result)
 end
 
-function take!(algo::RoundRobinProcessAlgorithm)
+function take!(algo::QueuedProcessAlgorithm)
   outputOrder = take!(algo.inputOrder)
   return take!(algo.outputChannels[outputOrder])
 end
@@ -102,8 +117,8 @@ end
 
 mutable struct MultiThreadedAlgorithm <: AbstractImageReconstructionAlgorithm
   params::MultiThreadedAlgorithmParameter
-  scheduler::RoundRobinProcessAlgorithm
+  scheduler::QueuedProcessAlgorithm
 end
-MultiThreadedAlgorithm(params::MultiThreadedAlgorithmParameter) = MultiThreadedAlgorithm(params, RoundRobinProcessAlgorithm(params.threadIDs))
+MultiThreadedAlgorithm(params::MultiThreadedAlgorithmParameter) = MultiThreadedAlgorithm(params, QueuedProcessAlgorithm(params.threadIDs))
 put!(algo::MultiThreadedAlgorithm, inputs...) = put!(algo.params.algo, MultiThreadedInput(algo.scheduler, inputs))
 take!(algo::MultiThreadedAlgorithm) = take!(algo.params.algo)
