@@ -106,6 +106,8 @@ function take!(algo::QueuedProcessAlgorithm)
   return take!(algo.outputChannels[outputOrder])
 end
 
+nthreads(algo::QueuedProcessAlgorithm) = length(algo.threads)
+
 export MultiThreadedAlgorithmParameter, MultiThreadedAlgorithm, MultiThreadedInput
 struct MultiThreadedInput
   scheduler::AbstractMultiThreadedProcessing
