@@ -12,83 +12,28 @@ export savePlan
 savePlan(filename::AbstractString, plan::RecoPlan) = toTOML(filename, plan)
 savePlan(m::Module, planname::AbstractString, plan::RecoPlan) = savePlan(planpath(m, planname), plan)
 
-export toTOML, toDict, toDict!, toDictValue
-# TODO adapt tomlType
-const MODULE_TAG = "_module"
-const TYPE_TAG = "_type"
-const VALUE_TAG = "_value"
-const UNION_TYPE_TAG = "_uniontype"
-const UNION_MODULE_TAG = "_unionmodule"
-
-
-function toTOML(fileName::AbstractString, value)
-  open(fileName, "w") do io
-    toTOML(io, value)
+toDictModule(plan::RecoPlan{T}) where {T} = parentmodule(T)
+toDictType(plan::RecoPlan{T}) where {T} = RecoPlan{getfield(parentmodule(T), nameof(T))}
+function addDictValue!(dict, value::RecoPlan)
+  for field in propertynames(value)
+    x = getproperty(value, field)
+    if !ismissing(x)
+      dict[string(field)] = toDictValue(type(value, field), x)
+    end
   end
-end
-
-function toTOML(io::IO, value)
-  dict = toDict(value)
-  TOML.print(io, dict) do x
-    toTOML(x)
+  listeners = filter(x-> !isempty(last(x)), getfield(value, :listeners))
+  if !isempty(listeners)
+    listenerDict = Dict{String, Any}()
+    for (field, l) in listeners
+      serializable = filter(x-> x isa SerializableListener, l)
+      if !isempty(serializable)
+        listenerDict[string(field)] = toDictValue(typeof(l), l)
+      end
+    end
+    if !isempty(listenerDict) 
+      dict[LISTENER_TAG] = listenerDict
+    end
   end
-end
-
-toTOML(x::Module) = string(x)
-toTOML(x::Symbol) = string(x)
-toTOML(x::T) where {T<:Enum} = string(x)
-toTOML(x::Array) = toTOML.(x)
-toTOML(x::Type{T}) where T = string(x)
-toTOML(x::Nothing) = Dict()
-
-function toDict(value)
-  dict = Dict{String, Any}()
-  return toDict!(dict, value)
-end
-
-function toDict!(dict, value)
-  dict[MODULE_TAG] = toDictModule(value)
-  dict[TYPE_TAG] = toDictType(value)
-  addDictValue!(dict, value)
-  return dict
-end
-toDictModule(value) = parentmodule(typeof(value))
-toDictType(value) = nameof(typeof(value))
-function addDictValue!(dict, value)
-  for field in fieldnames(typeof(value))
-    dict[string(field)] = toDictValue(fieldtype(typeof(value), field), getfield(value, field))
-  end
-end
-
-toDictType(value::Function) = nameof(value)
-function addDictValue!(dict, value::Function)
-  # NOP
-end
-
-toDictValue(type, value) = toDictValue(value)
-function toDictValue(x)
-  if fieldcount(typeof(x)) > 0
-    return toDict(x)
-  else
-    return x
-  end
-end
-toDictValue(x::Array) = toDictValue.(x)
-toDictValue(x::Type{T}) where T = toDict(x)
-function toDict!(dict, ::Type{T}) where T
-  dict[MODULE_TAG] = parentmodule(T)
-  dict[TYPE_TAG] = Type
-  dict[VALUE_TAG] = T
-  return dict
-end
-
-function toDictValue(type::Union, value)
-  dict = Dict{String, Any}()
-  dict[MODULE_TAG] = toDictModule(type)
-  dict[TYPE_TAG] = toDictType(type)
-  dict[VALUE_TAG] = toDictValue(value)
-  dict[UNION_TYPE_TAG] = typeof(value) # directly type to not remove parametric fields
-  dict[UNION_MODULE_TAG] = toDictModule(typeof(value))
   return dict
 end
 
