@@ -28,11 +28,11 @@ mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameters, Abstract
     listeners[:parameter] = AbstractPlanListener[]
     setProperties[:parameter] = false
     return new{getfield(parentmodule(T), nameof(T))}(nothing, dict, listeners, setProperties)
-  end  
+  end
 end
 
 
-Base.propertynames(plan::RecoPlan{T}) where {T} = keys(getfield(plan, :values))
+Base.propertynames(plan::RecoPlan{T}) where {T} = Tuple(keys(getfield(plan, :values)))
 Base.getproperty(plan::RecoPlan{T}, name::Symbol) where {T} = getfield(plan, :values)[name]
 Base.getindex(plan::RecoPlan{T}, name::Symbol) where {T} = Base.getproperty(plan, name)
 
@@ -67,14 +67,19 @@ ispropertyset(plan::RecoPlan, name::Symbol) = getfield(plan, :setProperties)[nam
 Base.setindex!(plan::RecoPlan, x, name::Symbol) = Base.setproperty!(plan, name, x)
 function setvalue!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
   old = Base.getproperty(plan, name)
-  t = type(plan, name)
+  
   if !haskey(getfield(plan, :values), name)
     error("type $T has no field $name")
-  elseif X <: t || X <: RecoPlan{<:t} || ismissing(x)
+  end
+
+  t = type(plan, name)
+  if validvalue(plan, t, x) 
+    X <: t || X <: RecoPlan{<:t} || ismissing(x)
     getfield(plan, :values)[name] = x
   else
     getfield(plan, :values)[name] = convert(t, x)
   end
+
   new = Base.getproperty(plan, name)
   for listener in getlisteners(plan, name)
     try
@@ -85,6 +90,13 @@ function setvalue!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
   end
   return new
 end
+validvalue(plan, t, value::Missing) = true
+validvalue(plan, ::Type{T}, value::X) where {T, X <: T} = true
+validvalue(plan, ::Type{T}, value::RecoPlan{<:T}) where T = true
+validvalue(plan, t, value) = false
+
+#X <: t || X <: RecoPlan{<:t} || ismissing(x)
+
 function setvalues!(plan::RecoPlan{T}; kwargs...) where {T<:AbstractImageReconstructionParameters}
   kwargs = values(kwargs)
   for field in propertynames(plan)
@@ -209,3 +221,4 @@ end
 
 include("Listeners.jl")
 include("Serialization.jl")
+include("Cache.jl")
