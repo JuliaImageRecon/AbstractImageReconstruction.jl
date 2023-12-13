@@ -5,7 +5,7 @@ using ThreadPools
 using Scratch
 using RegularizedLeastSquares
 
-import Base: put!, take!, fieldtypes, fieldtype, ismissing, propertynames, parent
+import Base: put!, take!, fieldtypes, fieldtype, ismissing, propertynames, parent, hash
 
 include("AlgorithmInterface.jl")
 include("StructTransforms.jl")
