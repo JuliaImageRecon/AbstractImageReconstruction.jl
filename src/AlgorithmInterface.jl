@@ -17,7 +17,10 @@ end
 export process
 # process(algoT::Type{T}, ...) as pure helper functions
 # Overwrite process(algo, ...) to mutate struct based on helper function result
-process(algoT::Type{T}, param::AbstractImageReconstructionParameters, inputs...) where {T<:AbstractImageReconstructionAlgorithm} = error("No processing defined for algorithm $T with parameter $(typeof(param))")
+"""
+    process(algo::Union{A, Type{A}}, param::AbstractImageReconstructionParameters, inputs...) where A <: AbstractImageReconstructionAlgorithm
+"""
+function process end
 process(algo::AbstractImageReconstructionAlgorithm, param::AbstractImageReconstructionParameters, inputs...) = process(typeof(algo), param, inputs...)
 
 """

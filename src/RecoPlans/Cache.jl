@@ -4,15 +4,7 @@ Base.@kwdef mutable struct CachedProcessParameter{P <: AbstractImageReconstructi
   cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
   const maxsize::Int64 = 1
 end
-function process(algo::AbstractImageReconstructionAlgorithm, param::CachedProcessParameter, inputs...)
-  id = hash(param.param, hash(inputs, hash(algo)))
-  result = get!(param.cache, id) do 
-    process(algo, param.param, inputs...)
-  end
-  param.cache[id] = result
-  return result
-end
-function process(algo::Type{<:AbstractImageReconstructionAlgorithm}, param::CachedProcessParameter, inputs...)
+function process(algo::Union{A, Type{<:A}}, param::CachedProcessParameter, inputs...) where {A<:AbstractImageReconstructionAlgorithm}
   id = hash(param.param, hash(inputs, hash(algo)))
   result = get!(param.cache, id) do 
     process(algo, param.param, inputs...)
