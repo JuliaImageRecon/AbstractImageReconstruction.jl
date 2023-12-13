@@ -1,32 +1,24 @@
 export CachedProcessParameter
 Base.@kwdef mutable struct CachedProcessParameter{P <: AbstractImageReconstructionParameters} <: AbstractImageReconstructionParameters
   param::P
-  cache::Dict{UInt64, Any} = Dict{UInt64, Any}()
-  lock::ReentrantLock = ReentrantLock()
+  cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
+  const maxsize::Int64 = 1
 end
 function process(algo::AbstractImageReconstructionAlgorithm, param::CachedProcessParameter, inputs...)
-  lock(param.lock) do 
-    id = hash(param.param, hash(inputs))
-    if haskey(param.cache, id)
-      result = param.cache[id]
-    else
-      result = process(algo, param.param, inputs...)
-    end
-    param.cache[id] = result
-    return result
+  id = hash(param.param, hash(inputs, hash(algo)))
+  result = get!(param.cache, id) do 
+    process(algo, param.param, inputs...)
   end
+  param.cache[id] = result
+  return result
 end
 function process(algo::Type{<:AbstractImageReconstructionAlgorithm}, param::CachedProcessParameter, inputs...)
-  lock(param.lock) do 
-    id = hash(param.param, hash(inputs))
-    if haskey(param.cache, id)
-      result = param.cache[id]
-    else
-      result = process(algo, param.param, inputs...)
-    end
-    param.cache[id] = result
-    return result
+  id = hash(param.param, hash(inputs, hash(algo)))
+  result = get!(param.cache, id) do 
+    process(algo, param.param, inputs...)
   end
+  param.cache[id] = result
+  return result
 end
 
 function validvalue(plan, ::Type{T}, value::RecoPlan{<:CachedProcessParameter}) where T
@@ -35,26 +27,28 @@ function validvalue(plan, ::Type{T}, value::RecoPlan{<:CachedProcessParameter}) 
 end
 
 # Do not serialize cache and lock, only param
-addDictValue!(dict, cache::RecoPlan{<:CachedProcessParameter}) = dict["param"] = toDictValue(type(cache, :param), cache.param)
+function addDictValue!(dict, cache::RecoPlan{<:CachedProcessParameter})
+  size = cache.maxsize
+  if !ismissing(size)
+    dict["maxsize"] = size
+  end
+  dict["param"] = toDictValue(type(cache, :param), cache.param)
+end
 
 # When deserializing always construct cache and lock
 # This means that all algorithms constructed by this plan share lock and cache
 function loadPlan!(plan::RecoPlan{<:CachedProcessParameter}, dict::Dict{String, Any}, modDict)
-  cache = Dict{UInt64, Any}()
-  lock = ReentrantLock()
+  maxsize = get(dict, "maxsize", 1)
+  cache = LRU{UInt64, Any}(;maxsize)
   param = missing
   if haskey(dict, "param")
     param = loadPlan!(dict["param"], modDict)
   end
-  setvalues!(plan; param, cache, lock)
+  setvalues!(plan; param, cache, maxsize)
   return plan
 end
 
-function Base.empty!(cache::CachedProcessParameter)
-  lock(cache.lock) do
-    empty!(cache.cache)
-  end
-end
+Base.empty!(cache::CachedProcessParameter) = empty!(cache.cache)
 
 """
     hash(parameter::AbstractImageReconstructionParameters, h)

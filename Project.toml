@@ -4,24 +4,21 @@ authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
 version = "0.2.0"
 
 [deps]
+LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
+RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
-RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
 
 [compat]
-julia = "1.6"
+RegularizedLeastSquares = "0.10, 0.11"
 Scratch = "1.2"
 TOML = "1"
 ThreadPools = "2.1"
-RegularizedLeastSquares = "0.10, 0.11"
+julia = "1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
-
-
-
-
