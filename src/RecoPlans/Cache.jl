@@ -35,6 +35,7 @@ function loadPlan!(plan::RecoPlan{<:ProcessResultCache}, dict::Dict{String, Any}
   param = missing
   if haskey(dict, "param")
     param = loadPlan!(dict["param"], modDict)
+    parent!(param, plan)
   end
   setvalues!(plan; param, cache, maxsize)
   return plan
