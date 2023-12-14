@@ -23,3 +23,5 @@ function removeListener!(plan::RecoPlan, field::Symbol, listener::AbstractPlanLi
   idx = findall(x->isequal(x, listener), listeners)
   isnothing(idx) && deleteat!(listeners, idx)
 end
+
+include("LinkedFieldListener.jl")
