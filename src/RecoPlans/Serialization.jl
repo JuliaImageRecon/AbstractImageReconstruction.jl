@@ -110,7 +110,7 @@ function loadPlanValue(t::UnionAll, value::Dict, modDict)
     return fromTOML(specializeType(t, value, modDict), value)
   end
 end
-function loadPlanValue(::Type{Vector{<:T}}, value::Vector, modDict) where {T}
+function loadPlanValue(::Type{Vector{<:T}}, value::Vector{Dict}, modDict) where {T}
   result = Any[]
   for val in value
     type = modDict[val[MODULE_TAG]][val[TYPE_TAG]]
