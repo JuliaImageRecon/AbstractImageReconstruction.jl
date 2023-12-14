@@ -158,8 +158,8 @@ function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where 
   loadListeners!(root, plan.parameter, dict["parameter"], modDict)
 end
 function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionParameters}
-  if haskey(dict, ".listener")
-    for (property, listenerDicts) in dict[".listener"]
+  if haskey(dict, LISTENER_TAG)
+    for (property, listenerDicts) in dict[LISTENER_TAG]
       for listenerDict in listenerDicts
         listener = loadListener(root, listenerDict, modDict)
         addListener!(plan, Symbol(property), listener)
