@@ -1,10 +1,10 @@
-export CachedProcessParameter
-Base.@kwdef mutable struct CachedProcessParameter{P <: AbstractImageReconstructionParameters} <: AbstractImageReconstructionParameters
+export ProcessResultCache
+Base.@kwdef mutable struct ProcessResultCache{P <: AbstractImageReconstructionParameters} <: AbstractImageReconstructionParameters
   param::P
-  cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
   const maxsize::Int64 = 1
+  cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
 end
-function process(algo::Union{A, Type{<:A}}, param::CachedProcessParameter, inputs...) where {A<:AbstractImageReconstructionAlgorithm}
+function process(algo::Union{A, Type{<:A}}, param::ProcessResultCache, inputs...) where {A<:AbstractImageReconstructionAlgorithm}
   id = hash(param.param, hash(inputs, hash(algo)))
   result = get!(param.cache, id) do 
     process(algo, param.param, inputs...)
@@ -13,13 +13,13 @@ function process(algo::Union{A, Type{<:A}}, param::CachedProcessParameter, input
   return result
 end
 
-function validvalue(plan, ::Type{T}, value::RecoPlan{<:CachedProcessParameter}) where T
+function validvalue(plan, ::Type{T}, value::RecoPlan{<:ProcessResultCache}) where T
   innertype = value.param isa RecoPlan ? typeof(value.param).parameters[1] : typeof(value.param)
-  return CachedProcessParameter{<:innertype} <: T 
+  return ProcessResultCache{<:innertype} <: T 
 end
 
 # Do not serialize cache and lock, only param
-function addDictValue!(dict, cache::RecoPlan{<:CachedProcessParameter})
+function addDictValue!(dict, cache::RecoPlan{<:ProcessResultCache})
   size = cache.maxsize
   if !ismissing(size)
     dict["maxsize"] = size
@@ -29,7 +29,7 @@ end
 
 # When deserializing always construct cache and lock
 # This means that all algorithms constructed by this plan share lock and cache
-function loadPlan!(plan::RecoPlan{<:CachedProcessParameter}, dict::Dict{String, Any}, modDict)
+function loadPlan!(plan::RecoPlan{<:ProcessResultCache}, dict::Dict{String, Any}, modDict)
   maxsize = get(dict, "maxsize", 1)
   cache = LRU{UInt64, Any}(;maxsize)
   param = missing
@@ -40,7 +40,7 @@ function loadPlan!(plan::RecoPlan{<:CachedProcessParameter}, dict::Dict{String, 
   return plan
 end
 
-Base.empty!(cache::CachedProcessParameter) = empty!(cache.cache)
+Base.empty!(cache::ProcessResultCache) = empty!(cache.cache)
 
 """
     hash(parameter::AbstractImageReconstructionParameters, h)
