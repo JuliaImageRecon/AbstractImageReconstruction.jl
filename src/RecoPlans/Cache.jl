@@ -13,6 +13,21 @@ function process(algo::Union{A, Type{<:A}}, param::ProcessResultCache, inputs...
   return result
 end
 
+function clear!(plan::RecoPlan{<:ProcessResultCache}, preserve::Bool = true)
+  dict = getfield(plan, :values)
+  set = getfield(plan, :setProperties)
+  for key in keys(dict)
+    value = dict[key]
+    if typeof(value) <: RecoPlan && preserve 
+      clear!(value, preserve)
+    else
+      dict[key] = missing
+      set[key] = false
+    end
+  end
+  return plan
+end
+
 function validvalue(plan, ::Type{T}, value::RecoPlan{<:ProcessResultCache}) where T
   innertype = value.param isa RecoPlan ? typeof(value.param).parameters[1] : typeof(value.param)
   return ProcessResultCache{<:innertype} <: T 
