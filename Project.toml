@@ -1,7 +1,7 @@
 name = "AbstractImageReconstruction"
 uuid = "a4b4fdbf-6459-4ec9-990d-77e1fa24a91b"
 authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
@@ -11,7 +11,6 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
 
 [compat]
-RegularizedLeastSquares = "0.10, 0.11"
 Scratch = "1.2"
 TOML = "1"
 ThreadPools = "2.1"
