@@ -74,7 +74,6 @@ function setvalue!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
 
   t = type(plan, name)
   if validvalue(plan, t, x) 
-    X <: t || X <: RecoPlan{<:t} || ismissing(x)
     getfield(plan, :values)[name] = x
   else
     getfield(plan, :values)[name] = convert(t, x)
@@ -93,6 +92,9 @@ end
 validvalue(plan, t, value::Missing) = true
 validvalue(plan, ::Type{T}, value::X) where {T, X <: T} = true
 validvalue(plan, ::Type{T}, value::RecoPlan{<:T}) where T = true
+# RecoPlans are stripped of parameters
+validvalue(plan, t::UnionAll, ::RecoPlan{T}) where T = T <: t || T <: Base.typename(t).wrapper # Last case doesnt work for Union{...} that is a UnionAll, such as ProcessCache Unio
+validvalue(plan, t::Type{Union}, value) = validvalue(plan, t.a, value) || validvalue(plan, t.b, value)
 validvalue(plan, t, value) = false
 
 #X <: t || X <: RecoPlan{<:t} || ismissing(x)
@@ -113,7 +115,7 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReco
   for (key, nested) in nestedPlans
     key != name && setAll!(nested, name, x)
   end
-  if haskey(fields, name)
+  if hasproperty(plan, name)
     try
       plan[name] = x
     catch ex
