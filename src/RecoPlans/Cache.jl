@@ -4,7 +4,10 @@ Base.@kwdef mutable struct ProcessResultCache{P <: AbstractImageReconstructionPa
   const maxsize::Int64 = 1
   cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
 end
-function process(algo::Union{A, Type{<:A}}, param::ProcessResultCache, inputs...) where {A<:AbstractImageReconstructionAlgorithm}
+process(algo::A, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algo, param, inputs...)
+process(algoT::Type{<:A}, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algoT, param, inputs...)
+
+function hashed_process(algo, param::ProcessResultCache, inputs...)
   id = hash(param.param, hash(inputs, hash(algo)))
   result = get!(param.cache, id) do 
     process(algo, param.param, inputs...)
@@ -28,9 +31,14 @@ function clear!(plan::RecoPlan{<:ProcessResultCache}, preserve::Bool = true)
   return plan
 end
 
-function validvalue(plan, ::Type{T}, value::RecoPlan{<:ProcessResultCache}) where T
+function validvalue(plan, union::Type{Union{T, ProcessResultCache{<:T}}}, value::RecoPlan{ProcessResultCache}) where T
   innertype = value.param isa RecoPlan ? typeof(value.param).parameters[1] : typeof(value.param)
-  return ProcessResultCache{<:innertype} <: T 
+  return ProcessResultCache{<:innertype} <: union 
+end
+
+function validvalue(plan, union::UnionAll, value::RecoPlan{ProcessResultCache})
+  innertype = value.param isa RecoPlan ? typeof(value.param).parameters[1] : typeof(value.param)
+  return ProcessResultCache{<:innertype} <: union 
 end
 
 # Do not serialize cache and lock, only param
