@@ -6,7 +6,13 @@ function plandir(m::Module)
     return @get_scratch!(string(m))
   end
 end
-planpath(m::Module, name::AbstractString) = joinpath(plandir(m), string(name, ".toml"))
+function planpath(m::Module, name::AbstractString) 
+  if m != AbstractImageReconstruction && hasproperty(m, :planpath)
+    return getproperty(m, :planpath)(name)
+  else
+    return joinpath(plandir(m), string(name, ".toml"))
+  end
+end
 
 export savePlan
 savePlan(filename::AbstractString, plan::RecoPlan) = toTOML(filename, plan)
@@ -54,7 +60,7 @@ function createModuleDataTypeDict(modules::Vector{Module})
       try
         t = getfield(mod, field)
         if t isa DataType || t isa UnionAll || t isa Function
-          typeDict[string(t)] = t
+          typeDict[string(field)] = t
         end
       catch
       end
@@ -93,6 +99,9 @@ function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T
       if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameters
         param = loadPlan!(dict[key], modDict)
         parent!(param, plan)
+
+        if param isa RecoPlan{ProcessResultCache}
+        end
       else
         param = loadPlanValue(T, name, t, dict[key], modDict)
       end
