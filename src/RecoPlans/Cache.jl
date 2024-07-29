@@ -13,7 +13,6 @@ function hashed_process(algo, param::ProcessResultCache, inputs...)
   result = get!(param.cache, id) do 
     process(algo, param.param, inputs...)
   end
-  param.cache[id] = result
   return result
 end
 
