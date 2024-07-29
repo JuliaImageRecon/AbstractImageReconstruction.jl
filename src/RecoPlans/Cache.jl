@@ -4,6 +4,7 @@ Base.@kwdef mutable struct ProcessResultCache{P <: AbstractImageReconstructionPa
   const maxsize::Int64 = 1
   cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
 end
+ProcessResultCache(param::AbstractImageReconstructionParameters; kwargs...) = ProcessResultCache(;param, kwargs...)
 process(algo::A, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algo, param, inputs...)
 process(algoT::Type{<:A}, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algoT, param, inputs...)
 
