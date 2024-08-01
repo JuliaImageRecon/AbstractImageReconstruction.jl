@@ -96,6 +96,7 @@ validvalue(plan, ::Type{T}, value::RecoPlan{<:T}) where T = true
 validvalue(plan, t::UnionAll, ::RecoPlan{T}) where T = T <: t || T <: Base.typename(t).wrapper # Last case doesnt work for Union{...} that is a UnionAll, such as ProcessCache Unio
 validvalue(plan, t::Type{Union}, value) = validvalue(plan, t.a, value) || validvalue(plan, t.b, value)
 validvalue(plan, t, value) = false
+validvalue(plan, ::Type{arrT}, value::AbstractArray) where {T, arrT <: AbstractArray{T}} = all(x -> validvalue(plan, T, x), value)
 
 #X <: t || X <: RecoPlan{<:t} || ismissing(x)
 
@@ -111,7 +112,7 @@ end
 export setAll!
 function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReconstructionParameters}
   fields = getfield(plan, :values)
-  nestedPlans = filter(entry -> isa(last(entry), RecoPlan), fields)
+  nestedPlans = filter(entry -> isa(last(entry), RecoPlan) || isa(last(entry), AbstractArray{<:RecoPlan}), fields)
   for (key, nested) in nestedPlans
     key != name && setAll!(nested, name, x)
   end
@@ -123,6 +124,7 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReco
     end
   end
 end
+setAll!(plans::AbstractArray{<:RecoPlan}, name::Symbol, x) = foreach(p -> setAll!(p, name, x), plans) 
 setAll!(plan::RecoPlan{<:AbstractImageReconstructionAlgorithm}, name::Symbol, x) = setAll!(plan.parameter, name, x)
 function setAll!(plan; kwargs...)
   for key in keys(kwargs)
@@ -181,13 +183,14 @@ Base.ismissing(plan::RecoPlan, name::Symbol) = ismissing(getfield(plan, :values)
 export build
 function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionParameters}
   fields = copy(getfield(plan, :values))
-  nestedPlans = filter(entry -> isa(last(entry), RecoPlan), fields)
+  nestedPlans = filter(entry -> isa(last(entry), RecoPlan) || isa(last(entry), AbstractArray{<:RecoPlan}), fields)
   for (name, nested) in nestedPlans
     fields[name] = build(nested)
   end
   fields = filter(entry -> !ismissing(last(entry)), fields)
   return T(;fields...)
 end
+build(plans::AbstractArray{<:RecoPlan}) = map(build, plans)
 function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm}
   parameter = build(plan[:parameter])
   return T(parameter)

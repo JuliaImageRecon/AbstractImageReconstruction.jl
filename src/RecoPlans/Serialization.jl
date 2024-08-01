@@ -99,9 +99,9 @@ function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T
       if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameters
         param = loadPlan!(dict[key], modDict)
         parent!(param, plan)
-
-        if param isa RecoPlan{ProcessResultCache}
-        end
+      elseif t <: Vector{<:AbstractImageReconstructionAlgorithm} || t <: Vector{<:AbstractImageReconstructionParameters}
+        param = map(x-> loadPlan!(x, modDict), dict[key])
+        foreach(p -> parent!(p, plan), param)
       else
         param = loadPlanValue(T, name, t, dict[key], modDict)
       end
