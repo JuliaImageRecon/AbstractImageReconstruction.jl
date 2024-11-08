@@ -33,6 +33,11 @@ function validvalue(plan, ::Type{T}, value::RecoPlan{<:ProcessResultCache}) wher
   return ProcessResultCache{<:innertype} <: T 
 end
 
+function validvalue(plan, union::UnionAll, value::RecoPlan{<:ProcessResultCache})
+  innertype = value.param isa RecoPlan ? typeof(value.param).parameters[1] : typeof(value.param)
+  return ProcessResultCache{<:innertype} <: union 
+end
+
 # Do not serialize cache and lock, only param
 function addDictValue!(dict, cache::RecoPlan{<:ProcessResultCache})
   size = cache.maxsize
