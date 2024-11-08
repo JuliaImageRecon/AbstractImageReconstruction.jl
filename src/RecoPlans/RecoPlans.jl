@@ -221,6 +221,7 @@ function toPlan(::Type{T}, params::AbstractImageReconstructionParameters) where 
   return plan
 end
 
+include("Show.jl")
 include("Listeners.jl")
 include("Serialization.jl")
 include("Cache.jl")

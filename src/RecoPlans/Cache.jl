@@ -70,3 +70,9 @@ function Base.hash(parameter::T, h::UInt64) where T <: AbstractImageReconstructi
   end
   return h
 end
+
+
+function showproperty(io::IO, name, property::RecoPlan{ProcessResultCache}, indent, islast, depth)
+  print(io, indent, islast ? ELBOW : TEE, name, "::$(typeof(property.param)) [Cached, $(property.maxsize)]", "\n")
+  showtree(io, property.param, indent * (islast ? INDENT : PIPE), depth + 1)
+end
