@@ -28,6 +28,31 @@ function clear!(plan::RecoPlan{<:ProcessResultCache}, preserve::Bool = true)
   return plan
 end
 
+# Make cache transparent for property getter/setter
+function Base.setproperty!(plan::RecoPlan{<:ProcessResultCache}, name::Symbol, value)
+  if in(name, [:param, :cache, :maxsize])
+    old = getproperty(plan, name) 
+    setvalue!(plan, name, value)
+    getfield(plan, :setProperties)[name] = true
+    for listener in getlisteners(plan, name)
+      try
+        propertyupdate!(listener, plan, name, old, x)
+      catch e
+        @error "Exception in listener $listener " e
+      end
+    end  
+  else
+    setproperty!(plan.param, name, value)
+  end
+end
+function Base.getproperty(plan::RecoPlan{<:ProcessResultCache}, name::Symbol)
+  if in(name, [:param, :cache, :maxsize])
+    return getfield(plan, :values)[name]
+  else
+    return getproperty(plan.param, name)
+  end
+end
+
 function validvalue(plan, ::Type{T}, value::RecoPlan{<:ProcessResultCache}) where T
   innertype = value.param isa RecoPlan ? typeof(value.param).parameters[1] : typeof(value.param)
   return ProcessResultCache{<:innertype} <: T 
