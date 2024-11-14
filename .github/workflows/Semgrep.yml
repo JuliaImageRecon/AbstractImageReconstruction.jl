@@ -9,7 +9,7 @@ on:
   # Scan on-demand through GitHub Actions interface:
   workflow_dispatch: 
     branches:
-        - main
+      - main
   # Schedule the CI job (this method uses cron syntax):
   schedule:
     - cron: '0 0 * * 1' # Run at start of week 
@@ -21,32 +21,29 @@ jobs:
     # If you are self-hosting, change the following `runs-on` value: 
     runs-on: ubuntu-latest
 
-    # Skip any PR created by dependabot to avoid permission issues:
-    if: (github.actor != 'dependabot[bot]')
-
     steps:
         # Checkout the repository.
       - name: Clone source code
         uses: actions/checkout@v4
 
-
         # Checkout custom rules
       - name: Checkout custom rules
         uses: actions/checkout@v4
         with:
-            repository: JuliaComputing/semgrep-rules-julia
-            ref: main
-            path: ./JuliaRules
+          repository: JuliaComputing/semgrep-rules-julia
+          ref: main
+          path: ./JuliaRules
 
         # Prepare Python
       - uses: actions/setup-python@v5
         with:
-            python-version: '3.10'
+          python-version: '3.10'
 
         # Install Semgrep
       - name: Install Semgrep
         run: python3 -m pip install semgrep
-    
+
+        # Run Semgrep
       - name: Scan with Semgrep
         run: | 
             semgrep scan \ 
@@ -59,10 +56,9 @@ jobs:
       - name: Save Semgrep report
         use: actions/upload-artifact@v4
         with:
-            name: report.sarif
-            path: report.sarif
-
-
+          name: report.sarif
+          path: report.sarif
+      
       - name: Upload Semgrep report
         uses: github/codeql-action/upload-sarif@v3
         with:
