@@ -46,11 +46,11 @@ jobs:
         # Run Semgrep
       - name: Scan with Semgrep
         run: | 
-            semgrep scan \ 
+            semgrep scan \
                 --config ./JuliaRules/rules \
                 --metrics = off \
-                --sarif --output report.sarif
-                --oss-only
+                --sarif --output report.sarif \
+                --oss-only \
                 --exclude=JuliaRules
     
       - name: Save Semgrep report
