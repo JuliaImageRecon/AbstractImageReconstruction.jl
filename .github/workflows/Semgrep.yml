@@ -54,7 +54,7 @@ jobs:
                 --exclude=JuliaRules
     
       - name: Save Semgrep report
-        use: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: report.sarif
           path: report.sarif
