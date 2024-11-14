@@ -33,15 +33,15 @@ jobs:
         # Checkout custom rules
       - name: Checkout custom rules
         uses: actions/checkout@v4
-            with:
-                repository: JuliaComputing/semgrep-rules-julia
-                ref: main
-                path: ./JuliaRules
+        with:
+            repository: JuliaComputing/semgrep-rules-julia
+            ref: main
+            path: ./JuliaRules
 
         # Prepare Python
       - uses: actions/setup-python@v5
-            with:
-                python-version: '3.10'
+        with:
+            python-version: '3.10'
 
         # Install Semgrep
       - name: Install Semgrep
@@ -58,9 +58,9 @@ jobs:
     
       - name: Save Semgrep report
         use: actions/upload-artifact@v4
-            with:
-                name: report.sarif
-                path: report.sarif
+        with:
+            name: report.sarif
+            path: report.sarif
 
 
       - name: Upload Semgrep report
