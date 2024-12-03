@@ -35,13 +35,13 @@ end #hide
 # Now that we have implemented our direct reconstruction algorithm, we can use it to reconstruct for example the first three images of our time series.
 # We first prepare our parameters:
 pre = RadonPreprocessingParameters(frames = collect(1:3))
-iter_reco = IterativeRadonReconstructionParameters(; shape = size(images)[1:3], angles = angles, iterations = 20, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR) 
+iter_reco = IterativeRadonReconstructionParameters(; shape = size(images)[1:3], angles = angles, iterations = 20, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR);
 
 # Then we can construct the algorithms:
-algo_iter = IterativeRadonAlgorithm(IterativeRadonParameters(pre, iter_reco))
+algo_iter = IterativeRadonAlgorithm(IterativeRadonParameters(pre, iter_reco));
 
 # And apply them to our sinograms:
-imag_iter = reconstruct(algo_iter, sinograms)
+imag_iter = reconstruct(algo_iter, sinograms);
 
 # Finally we can visualize the results:
 fig = Figure()
