@@ -32,6 +32,8 @@ makedocs(
             "Interface" => "generated/example/1_interface.md",
             "Direct Reconstruction" => "generated/example/2_direct.md",
             "Direct Reconstruction Result" => "generated/example/3_direct_result.md",
+            "Iterative Reconstruction" => "generated/example/4_iterative.md",
+            "Iterative Reconstruction Result" => "generated/example/5_iterative_result.md",
         ],
         "How to" => Any[
             #"Construct RecoPlan" => "generated/howto/reco_plan.md",

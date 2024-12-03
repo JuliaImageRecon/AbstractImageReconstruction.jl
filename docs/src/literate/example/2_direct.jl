@@ -50,7 +50,7 @@ mutable struct DirectRadonAlgorithm{D} <: AbstractDirectRadonAlgorithm where D <
   DirectRadonAlgorithm(parameter::D) where D = new{D}(parameter, Channel{Any}(Inf))
 end
 # And they implement a method to retrieve the used parameters:
-AbstractImageReconstruction.parameters(algo::DirectRadonAlgorithm) = algo.parameter
+AbstractImageReconstruction.parameter(algo::DirectRadonAlgorithm) = algo.parameter
 
 # And implement the `put!` and `take!` functions, mimicking the behavior of a FIFO channel:
 Base.take!(algo::DirectRadonAlgorithm) = Base.take!(algo.output)

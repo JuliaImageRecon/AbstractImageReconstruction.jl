@@ -1,5 +1,5 @@
 # Small Reconstruction Package for Radon projections
-In this example we will implement a small image reconstruction package with the help of `AbstractImageReconstruction.jl`. Our example reconstruction package aims to provide direct and iterative reconstruction algorithms for Radon projection data with optional GPU support. 
+In this example we will implement a small image reconstruction package with the help of `AbstractImageReconstruction.jl`. Our example reconstruction package aims to provide direct and iterative reconstruction algorithms for Radon projection data. 
 
 Most of the desired functionality is already implemented in various Julia packages. Our reconstruction packages now needs to properly connect these packages and transform the data into the appropriate formats for each package.
 

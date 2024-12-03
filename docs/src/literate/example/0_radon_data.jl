@@ -42,7 +42,7 @@ fig
 # ## 3D Pnantom
 # RadonKA.jl also supports 3D Radon transforms. The first two dimensions are interpreted as the XY plane where the transform applied and the last dimensions is the rotational axis z of the projections.
 # For that we need to create a 3D Shepp-Logan phantom. First we retrieve the parameters of the ellipsoids of the Shepp-Logan phantom:
-shape = (128, 128, 128)
+shape = (64, 64, 64)
 params = map(collect, ellipsoid_parameters(; fovs = shape));
 
 # We then scale the intensities of the ellipsoids to [0.0, ..., 1.0]:
@@ -63,12 +63,12 @@ size(sinogram)
 
 # Let's visualize the 3D Radon data:
 fig = Figure()
-plot_image(fig[1,1], reverse(image[52,:,:]), title = "Slice YZ at z=48")
-plot_image(fig[1,2], image[:,80,:], title = "Slice XZ at y=80")
-plot_image(fig[2,1], reverse(image[:, :, 48]), title = "Slice XY at z=48")
-plot_image(fig[2,2], reverse(sinogram[:,:,48]), title = "Sinogram at z=48")
-plot_image(fig[3,1], reverse(image[:, :, 32]), title = "Slice XY at z=32")
-plot_image(fig[3,2], reverse(sinogram[:,:,32]), title = "Sinogram at z=32")
+plot_image(fig[1,1], reverse(image[26,:,:]), title = "Slice YZ at z=26")
+plot_image(fig[1,2], image[:,40,:], title = "Slice XZ at y=40")
+plot_image(fig[2,1], reverse(image[:, :, 24]), title = "Slice XY at z=24")
+plot_image(fig[2,2], reverse(sinogram[:,:,24]), title = "Sinogram at z=24")
+plot_image(fig[3,1], reverse(image[:, :,16]), title = "Slice XY at z=16")
+plot_image(fig[3,2], reverse(sinogram[:,:,16]), title = "Sinogram at z=16")
 resize_to_layout!(fig)
 fig
 
@@ -88,8 +88,8 @@ size(sinograms)
 
 fig = Figure()
 for i = 1:5
-  plot_image(fig[i,1], reverse(images[:, :, 48, i]))
-  plot_image(fig[i,2], sinograms[:, :, 48, i])
+  plot_image(fig[i,1], reverse(images[:, :, 24, i]))
+  plot_image(fig[i,2], sinograms[:, :, 24, i])
 end
 resize_to_layout!(fig)
 fig

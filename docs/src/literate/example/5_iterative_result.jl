@@ -1,5 +1,6 @@
 include("../../literate/example/1_interface.jl") #hide
 include("../../literate/example/2_direct.jl") #hide
+include("../../literate/example/4_iterative.jl") #hide
 using RadonKA, ImagePhantoms, ImageGeoms, CairoMakie, AbstractImageReconstruction #hide
 using CairoMakie #hide
 function plot_image(figPos, img; title = "", width = 150, height = 150) #hide
@@ -34,24 +35,20 @@ end #hide
 # Now that we have implemented our direct reconstruction algorithm, we can use it to reconstruct for example the first three images of our time series.
 # We first prepare our parameters:
 pre = RadonPreprocessingParameters(frames = collect(1:3))
-back_reco = RadonBackprojectionParameters(;angles)
-filter_reco = RadonFilteredBackprojectionParameters(;angles);
+iter_reco = IterativeRadonReconstructionParameters(; shape = size(images)[1:3], angles = angles, iterations = 20, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR) 
 
 # Then we can construct the algorithms:
-algo_back = DirectRadonAlgorithm(DirectRadonParameters(pre, back_reco))
-algo_filter = DirectRadonAlgorithm(DirectRadonParameters(pre, filter_reco));
+algo_iter = IterativeRadonAlgorithm(IterativeRadonParameters(pre, iter_reco))
 
 # And apply them to our sinograms:
-imag_back = reconstruct(algo_back, sinograms)
-imag_filter = reconstruct(algo_filter, sinograms);
+imag_iter = reconstruct(algo_iter, sinograms)
 
 # Finally we can visualize the results:
 fig = Figure()
 for i = 1:3
   plot_image(fig[i,1], reverse(images[:, :, 24, i]))
   plot_image(fig[i,2], sinograms[:, :, 24, i])
-  plot_image(fig[i,3], reverse(imag_back[:, :, 24, i]))
-  plot_image(fig[i,4], reverse(imag_filter[:, :, 24, i]))
+  plot_image(fig[i,3], reverse(imag_iter[:, :, 24, i]))
 end
 resize_to_layout!(fig)
 fig
