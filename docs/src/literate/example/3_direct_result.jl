@@ -1,34 +1,4 @@
-include("../../literate/example/1_interface.jl") #hide
-include("../../literate/example/2_direct.jl") #hide
-using RadonKA, ImagePhantoms, ImageGeoms, CairoMakie, AbstractImageReconstruction #hide
-using CairoMakie #hide
-function plot_image(figPos, img; title = "", width = 150, height = 150) #hide
-  ax = CairoMakie.Axis(figPos[1, 1]; yreversed=true, title, width, height) #hide
-  hidedecorations!(ax) #hide
-  hm = heatmap!(ax, img) #hide
-  Colorbar(figPos[1, 2], hm) #hide
-end #hide
-angles = collect(range(0, π, 256)) #hide
-shape = (64, 64, 64) #hide
-params = map(collect, ellipsoid_parameters(; fovs = shape)) #hide
-toft_settings = [1.0, -0.8, -0.2, -0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] #hide
-for idx in eachindex(toft_settings) #hide
-  params[idx][10] = toft_settings[idx] #hide
-end #hide
-ob = ellipsoid(map(Tuple, params)) #hide
-ig = ImageGeom(;dims = shape) #hide
-image = phantom(axes(ig)..., ob) #hide
-sinogram = Array(RadonKA.radon(image, angles)) #hide
-sinograms = similar(sinogram, size(sinogram)..., 5) #hide
-images = similar(image, size(image)..., 5) #hide
-for (i, intensity) in enumerate(range(params[3][end], 0.3, 5)) #hide
-  params[3][end] = intensity #hide
-  local ob = ellipsoid(map(Tuple, params)) #hide
-  local ig = ImageGeom(;dims = shape) #hide
-  images[:, :, :, i] = phantom(axes(ig)..., ob) #hide
-  sinograms[:, :, :, i] = Array(RadonKA.radon(images[:, :, :, i], angles)) #hide
-end #hide
-
+include("../../literate/example/example_include.jl") #hide
 
 # # Direct Reconstruction Result
 # Now that we have implemented our direct reconstruction algorithm, we can use it to reconstruct for example the first three images of our time series.
