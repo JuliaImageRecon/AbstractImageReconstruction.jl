@@ -1,11 +1,16 @@
-# AbstractImageReconstruction
+# AbstractImageReconstruction.jl
 
-[![Build Status](https://github.com/JuliaImageRecon/AbstractImageReconstruction.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/JuliaImageRecon/AbstractImageReconstruction.jl/actions/workflows/CI.yml?query=branch%3Amain)
+*Abstract Interface for Medical Image Reconstruction Packages*
 
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaImageRecon.github.io/AbstractImageReconstruction.jl/latest)
+## Introduction
 
+AbstractImageReconstruction.jl is a Julia package that serves as the core API for medical imaging packages. It provides implementations an interface and type hierarchy with which one can represent and implement image reconstruction algorithms, their parameters and runtime behaviour. In particular, this package serves as the API of the Julia packages [MPIReco.jl](https://github.com/MagneticParticleImaging/MPIReco.jl).
 
-This package contains an interface and type hierarchy for image reconstruction algorithms and their parameters, together with associated utility tools.
+## Features
+
+* Variety of optimization algorithms optimized for least squares problems
+* Storing, loading and manipulating of reconstruction algorithms with (partially) set parameters
+* Attaching callback listeners to parameters
 
 ## Installation
 
@@ -14,7 +19,7 @@ Within Julia, use the package manager:
 using Pkg
 Pkg.add("AbstractImageReconstruction")
 ```
-AbstractImageReconstruction is not intended to be used alone, but together with an image reconstruction package that implements the provided interface, such as [MPIReco.jl](https://github.com/MagneticParticleImaging/MPIReco.jl)
+AbstractImageReconstruction is not intended to be used alone, but together with an image reconstruction package that implements the provided interface, such as [MPIReco.jl](https://github.com/MagneticParticleImaging/MPIReco.jl).
 
 ## Usage
 Concrete construction of reconstruction algorithms depend on the implementation of the reconstruction package. Once an algorithms is constructed with the given paramters, images can be reconstructed as follows:
