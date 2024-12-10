@@ -2,6 +2,7 @@ module AbstractImageReconstruction
 
 using TOML
 using ThreadPools
+using Observables
 using Scratch
 using LRUCache
 
