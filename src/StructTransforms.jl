@@ -53,7 +53,7 @@ function fromKwargs(type::Type{T}; kwargs...) where {T}
   return type(;args...)
 end
 
-export toTOML, toDict, toDict!, toDictValue
+export toTOML, toDict, toDict!, toDictValue, toDictValue!
 # TODO adapt tomlType
 const MODULE_TAG = "_module"
 const TYPE_TAG = "_type"
@@ -90,19 +90,19 @@ end
 function toDict!(dict, value)
   dict[MODULE_TAG] = toDictModule(value)
   dict[TYPE_TAG] = toDictType(value)
-  addDictValue!(dict, value)
+  toDictValue!(dict, value)
   return dict
 end
 toDictModule(value) = parentmodule(typeof(value))
 toDictType(value) = nameof(typeof(value))
-function addDictValue!(dict, value)
+function toDictValue!(dict, value)
   for field in fieldnames(typeof(value))
     dict[string(field)] = toDictValue(fieldtype(typeof(value), field), getfield(value, field))
   end
 end
 
 toDictType(value::Function) = nameof(value)
-function addDictValue!(dict, value::Function)
+function toDictValue!(dict, value::Function)
   # NOP
 end
 

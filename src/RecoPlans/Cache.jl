@@ -18,14 +18,13 @@ end
 
 function clear!(plan::RecoPlan{<:ProcessResultCache}, preserve::Bool = true)
   dict = getfield(plan, :values)
-  set = getfield(plan, :setProperties)
   for key in keys(dict)
-    value = dict[key]
+    value = dict[key][]
+    # Dont remove cache when clearing and preserving structure
     if typeof(value) <: RecoPlan && preserve 
       clear!(value, preserve)
     else
-      dict[key] = missing
-      set[key] = false
+      dict[key] = Observable{Any}(missing)
     end
   end
   return plan
@@ -34,23 +33,15 @@ end
 # Make cache transparent for property getter/setter
 function Base.setproperty!(plan::RecoPlan{<:ProcessResultCache}, name::Symbol, value)
   if in(name, [:param, :cache, :maxsize])
-    old = getproperty(plan, name) 
-    setvalue!(plan, name, value)
-    getfield(plan, :setProperties)[name] = true
-    for listener in getlisteners(plan, name)
-      try
-        propertyupdate!(listener, plan, name, old, x)
-      catch e
-        @error "Exception in listener $listener " e
-      end
-    end  
+    t = type(plan, name)
+    getfield(plan, :values)[name][] = validvalue(plan, t, value) ? value : convert(t, x)
   else
     setproperty!(plan.param, name, value)
   end
 end
 function Base.getproperty(plan::RecoPlan{<:ProcessResultCache}, name::Symbol)
   if in(name, [:param, :cache, :maxsize])
-    return getfield(plan, :values)[name]
+    return getfield(plan, :values)[name][]
   else
     return getproperty(plan.param, name)
   end
