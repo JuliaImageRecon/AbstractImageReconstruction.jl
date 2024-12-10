@@ -1,27 +1,9 @@
-export TransientListener, SerializableListener
-abstract type TransientListener <: AbstractPlanListener end
-abstract type SerializableListener <: AbstractPlanListener end
+export AbstractPlanListener
+abstract type AbstractPlanListener end
 
 const LISTENER_TAG = "_listener"
 
-export propertyupdate!, valueupdate 
-function propertyupdate!(listener::AbstractPlanListener, origin, field, old, new)
-  # NOP
-end
-function valueupdate(listener::AbstractPlanListener, origin, field, old, new)
-  # NOP
-end
+Observables.on(f, plan::RecoPlan, field::Symbol; kwargs...) = on(f, getfield(plan, :values)[field]; kwargs...)
+Observables.off(plan::RecoPlan, field::Symbol, f) = off(f, getfield(plan, :values)[field])
 
-export getlisteners, addListener!, removeListener!
-getlisteners(plan::RecoPlan, field::Symbol) = getfield(plan, :listeners)[field]
-function addListener!(plan::RecoPlan, field::Symbol, listener::AbstractPlanListener)
-  listeners = getlisteners(plan, field)
-  push!(listeners, listener)
-end
-function removeListener!(plan::RecoPlan, field::Symbol, listener::AbstractPlanListener)
-  listeners = getlisteners(plan, field)
-  idx = findall(x->isequal(x, listener), listeners)
-  isnothing(idx) && deleteat!(listeners, idx)
-end
-
-include("LinkedFieldListener.jl")
+include("LinkedPropertyListener.jl")

@@ -20,33 +20,30 @@ savePlan(m::Module, planname::AbstractString, plan::RecoPlan) = savePlan(planpat
 
 toDictModule(plan::RecoPlan{T}) where {T} = parentmodule(T)
 toDictType(plan::RecoPlan{T}) where {T} = RecoPlan{getfield(parentmodule(T), nameof(T))}
-function addDictValue!(dict, value::RecoPlan)
+function toDictValue!(dict, value::RecoPlan)
+  listenerDict = Dict{String, Any}()
   for field in propertynames(value)
     x = getproperty(value, field)
     if !ismissing(x)
       dict[string(field)] = toDictValue(type(value, field), x)
     end
-  end
-  listeners = filter(x-> !isempty(last(x)), getfield(value, :listeners))
-  if !isempty(listeners)
-    listenerDict = Dict{String, Any}()
-    for (field, l) in listeners
-      serializable = filter(x-> x isa SerializableListener, l)
-      if !isempty(serializable)
-        listenerDict[string(field)] = toDictValue(typeof(l), l)
-      end
-    end
-    if !isempty(listenerDict) 
-      dict[LISTENER_TAG] = listenerDict
+    listeners = filter(l -> l isa AbstractPlanListener, last.(Observables.listeners(value[field])))
+    if !isempty(listeners)
+      listenerDict[string(field)] = toDictValue(typeof(listeners), listeners)
     end
   end
+
+  if !isempty(listenerDict) 
+    dict[LISTENER_TAG] = listenerDict
+  end
+  
   return dict
 end
 
 export loadPlan
 loadPlan(m::Module, name::AbstractString, modules::Vector{Module}) = loadPlan(planpath(m, name), modules)
-function loadPlan(filename::AbstractString, modules::Vector{Module})
-  dict = TOML.parsefile(filename)
+function loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
+  dict = TOML.parse(filename)
   modDict = createModuleDataTypeDict(modules)
   plan = loadPlan!(dict, modDict)
   loadListeners!(plan, dict, modDict)
@@ -87,7 +84,7 @@ end
 function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionAlgorithm}
   temp = loadPlan!(dict["parameter"], modDict)
   parent!(temp, plan)
-  setvalue!(plan, :parameter, temp)
+  setproperty!(plan, :parameter, temp)
   return plan
 end
 function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionParameters}
@@ -106,7 +103,7 @@ function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T
         param = loadPlanValue(T, name, t, dict[key], modDict)
       end
     end
-    setvalue!(plan, name, param)
+    setproperty!(plan, name, param)
   end
   return plan
 end
@@ -170,8 +167,7 @@ function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where 
   if haskey(dict, LISTENER_TAG)
     for (property, listenerDicts) in dict[LISTENER_TAG]
       for listenerDict in listenerDicts
-        listener = loadListener(root, listenerDict, modDict)
-        addListener!(plan, Symbol(property), listener)
+        loadListener!(plan, Symbol(property), listenerDict, modDict)
       end
     end
   end
@@ -183,9 +179,9 @@ function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where 
   end
 end
 export loadListener
-function loadListener(root, dict, modDict)
+function loadListener!(plan,  name::Symbol, dict, modDict)
   type = tomlType(dict, modDict)
-  return loadListener(type, root, dict, modDict)
+  return loadListener!(type, plan, name, dict, modDict)
 end
 
 fromTOML(t, x) = x
