@@ -1,4 +1,4 @@
-include("../../literate/example/example_include.jl") #hide
+include("../../literate/example/example_include_all.jl") #hide
 
 # # Direct Reconstruction Result
 # Now that we have implemented our direct reconstruction algorithm, we can use it to reconstruct for example the first three images of our time series.

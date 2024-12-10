@@ -1,5 +1,6 @@
 include("../../literate/example/1_interface.jl") #hide
 using RadonKA #hide
+export AbstractIterativeRadonReconstructionParameters, IterativeRadonReconstructionParameters, IterativeRadonParameters, IterativeRadonAlgorithm #hide
 
 # # Iterative Reconstruction
 # In this section we implement a more complex iterative reconstruction algorithm. 
@@ -38,14 +39,14 @@ end
 
 # ## Algorithm
 # Similar to the direct reconstruction algorithm, we want our iterative algorithm to accept both preprocessing and reconstruction parameters. We will encode this in a new type:
-Base.@kwdef struct IterativeRadonParameters{P, R} <: AbstractRadonParameters where {P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters}
+Base.@kwdef struct IterativeRadonParameters{P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters} <: AbstractRadonParameters 
   pre::P
   reco::R
 end
 # Instead of defining essentially the same struct again, we could also define a more generic one and specify the supported reconstruction parameter as type constraints in the algorithm constructor.
 
 # Unlike the direct reconstruction algorithm, the iterative algorithm has to store the linear operator. We will store it as a field in the algorithm type:
-mutable struct IterativeRadonAlgorithm{D} <: AbstractIterativeRadonAlgorithm where D <: IterativeRadonParameters
+mutable struct IterativeRadonAlgorithm{D <: IterativeRadonParameters} <: AbstractIterativeRadonAlgorithm
   parameter::D
   op::Union{Nothing, AbstractLinearOperator}
   output::Channel{Any}
@@ -69,7 +70,7 @@ function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, para
   return process(AbstractIterativeRadonAlgorithm, params, op, data)
 end
 
-# As it stands our algorithm is not type stable. To fix this, we would need to know the element type during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.
+# Our algorithm is not type stable. To fix this, we would need to know the element type of the sinograms during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.
 # Often times the performance impact of this is negligible as the critical sections are in the preprocessing or the iterative solver, especially since we still dispatch on the operator.
 
 # To finish up the implementation we need to implement the `put!`, `take!` and `parameters` functions:

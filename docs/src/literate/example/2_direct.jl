@@ -1,5 +1,6 @@
 include("../../literate/example/1_interface.jl") #hide
 using RadonKA #hide
+export AbstractDirectRadonReconstructionParameters, RadonFilteredBackprojectionParameters, RadonBackprojectionParameters, DirectRadonParameters, DirectRadonAlgorithm #hide
 
 # # Direct Reconstruction
 # To implement our direct reconstruction algorithms we need to define a few more methods and types. We will start by defining the parameters for the backprojection and for the filtered backprojection. Afterwards we can implement the algorithm itself.
@@ -33,7 +34,7 @@ AbstractImageReconstruction.process(::Type{<:AbstractDirectRadonAlgorithm}, para
 # ## Algorithm
 # The direct reconstruction algorithm has essentially no state to store between reconstructions and thus only needs its parameters as fields. We want our algorithm to accept any combination of our preprocessing and direct reconstruction parameters.
 # This we encode in a new type:
-Base.@kwdef struct DirectRadonParameters{P, R} <: AbstractRadonParameters where {P<:AbstractRadonPreprocessingParameters, R<:AbstractDirectRadonReconstructionParameters}
+Base.@kwdef struct DirectRadonParameters{P <: AbstractRadonPreprocessingParameters, R <: AbstractDirectRadonReconstructionParameters} <: AbstractRadonParameters
   pre::P
   reco::R
 end
@@ -44,7 +45,7 @@ function AbstractImageReconstruction.process(algoT::Type{<:AbstractDirectRadonAl
 end
 
 # Now we can define the algorithm type itself. Algorithms are usually constructed with one argument passing in the user parameters:
-mutable struct DirectRadonAlgorithm{D} <: AbstractDirectRadonAlgorithm where D <: DirectRadonParameters
+mutable struct DirectRadonAlgorithm{D <: DirectRadonParameters} <: AbstractDirectRadonAlgorithm
   parameter::D
   output::Channel{Any}
   DirectRadonAlgorithm(parameter::D) where D = new{D}(parameter, Channel{Any}(Inf))

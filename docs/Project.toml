@@ -7,6 +7,7 @@ ImageGeoms = "9ee76f2b-840d-4475-b6d6-e485c9297852"
 ImagePhantoms = "71a99df6-f52c-4da1-bd2a-69d6f37f3252"
 LinearOperatorCollection = "a4a2c56f-fead-462a-a3ab-85921a5f2575"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
 RadonKA = "86de8297-835b-47df-b249-c04e8db91db5"
 RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
 

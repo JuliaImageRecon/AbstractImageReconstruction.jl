@@ -12,6 +12,7 @@
 
 # For our package we extend these abstract types with our own abstract subtypes:
 using AbstractImageReconstruction
+export AbstractRadonAlgorithm, AbstractRadonParameters, AbstractRadonPreprocessingParameters, AbstractRadonReconstructionParameters, AbstractDirectRadonAlgorithm, AbstractIterativeRadonAlgorithm, RadonPreprocessingParameters # hide
 abstract type AbstractRadonAlgorithm <: AbstractImageReconstructionAlgorithm end
 abstract type AbstractRadonParameters <: AbstractImageReconstructionParameters end
 

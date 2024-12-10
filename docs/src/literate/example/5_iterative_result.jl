@@ -1,4 +1,4 @@
-include("../../literate/example/example_include.jl") #hide
+include("../../literate/example/example_include_all.jl") #hide
 
 # # Iterative Reconstruction Result
 # We can now use the iterative algorithms to reconstruct the first three images of our time series.

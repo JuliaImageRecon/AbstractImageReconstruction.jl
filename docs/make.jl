@@ -36,9 +36,9 @@ makedocs(
             "Iterative Reconstruction Result" => "generated/example/5_iterative_result.md",
         ],
         "How to" => Any[
-            #"Construct RecoPlan" => "generated/howto/reco_plan.md",
-            #"Caching" => "generated/howto/caching.md",
-            #"Listeners" => "generated/howto/listeners.md",
+            "Serialization" => "generated/howto/serialization.md",
+            "Caching" => "generated/howto/caching.md",
+            "Observables" => "generated/howto/observables.md",
         ],
         #"API Reference" => Any["Solvers" => "API/solvers.md",
         #"Regularization Terms" => "API/regularization.md"],

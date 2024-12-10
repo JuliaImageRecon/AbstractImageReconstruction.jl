@@ -3,7 +3,8 @@ In this example we will implement a small image reconstruction package with the 
 
 Most of the desired functionality is already implemented in various Julia packages. Our reconstruction packages now needs to properly connect these packages and transform the data into the appropriate formats for each package. 
 
-The example is intended for developers of reconstruction packages that use `AbstractImageReconstruction`. End-users of such a package can consult the result sections of the example to see the high-level interface of `AbstractImagerReconstruction` and should otherwise consult the documentation of the concrete reconstruction package itself.
+!!! note
+    The example is intended for developers of reconstruction packages that use `AbstractImageReconstruction`. End-users of such a package can consult the result sections of the example to see the high-level interface of `AbstractImagerReconstruction` and should otherwise consult the documentation of the concrete reconstruction package itself.
 
 ## Installation
 We can install `AbstractImageReconstruction` using the Julia package manager. Open a Julia REPL and run the following command:

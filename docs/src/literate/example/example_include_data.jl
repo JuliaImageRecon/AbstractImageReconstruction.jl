@@ -1,8 +1,6 @@
-include("../../literate/example/1_interface.jl") 
-include("../../literate/example/2_direct.jl") 
-include("../../literate/example/4_iterative.jl") 
-using RadonKA, ImagePhantoms, ImageGeoms, CairoMakie, AbstractImageReconstruction 
+using RadonKA, ImagePhantoms, ImageGeoms, CairoMakie, AbstractImageReconstruction, RegularizedLeastSquares
 using CairoMakie 
+using .OurRadonReco
 function plot_image(figPos, img; title = "", width = 150, height = 150) 
   ax = CairoMakie.Axis(figPos[1, 1]; yreversed=true, title, width, height) 
   hidedecorations!(ax) 
