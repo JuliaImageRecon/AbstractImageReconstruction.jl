@@ -1,15 +1,15 @@
 # # Radon Data
 
-# In this example we will setup our Radon data using RadonKA.jl, ImagePhantoms.jl and ImageGeoms.jl. We will start with simple 2D images and their sinograms and move up to a time series of 3D images and sinograms.
+# In this example we will set up our radon data using RadonKA.jl, ImagePhantoms.jl and ImageGeoms.jl. We will start with simple 2D images and their sinograms and continue with a time series of 3D images and sinograms.
 
 # ## Background
-# The Radon transform is a integral transform which projects the values of a function(/or a phantom) along straight lines onto a detector.
+# The Radon transform is an integral transform that projects the values of a function(or a phantom) along straight lines onto a detector.
 # These projections are recorded for a number of different angles and form the so-called sinogram. The Radon transform and its adjoint form the mathematical basis
-# for Computed Tomography (CT) and other imaging modalities such as single photon emission computed tomography (SPECT) and positron emission tomography (PET).
+# for computed tomography (CT) and other imaging modalities such as single photon emission computed tomography (SPECT) and positron emission tomography (PET).
 
 # ## 2D Phantom
 # We will use a simple Shepp-Logan phantom to generate our Radon data. The phantom is a standard test image for medical imaging and consists of a number of ellipses with different intensities.
-# It can be generated with ImagePhantoms.jl and ImageGeoms.jl. as follows:
+# It can be generated using ImagePhantoms.jl and ImageGeoms.jl. as follows:
 
 using ImagePhantoms, ImageGeoms
 N = 256
@@ -17,7 +17,7 @@ image = shepp_logan(N, SheppLoganToft())
 size(image)
 
 # This produces a 256x256 image of a Shepp-Logan phantom. Next, we will generate the Radon data using `radon` from RadonKA.jl.
-# The arguments of this function are image or phantom under transformation, the anlges at which the projections are taken, and the used geometry of the system. For this example we will use the default parallel circle geometry. 
+# The arguments of this function are the image or phantom to be transformed, the angles at which the projections are taken, and the used geometry of the system. For this example we will use the default parallel circle geometry. 
 # For more details, we refer to the RadonKA.jl documentation. We will use 256 angles for the projections, between 0 and π.
 using RadonKA
 angles = collect(range(0, π, 256))

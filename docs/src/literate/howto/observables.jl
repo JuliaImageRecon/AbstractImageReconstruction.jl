@@ -4,7 +4,8 @@ include("../../literate/example/example_include_all.jl") #hide
 # Observables from [Observables.jl](https://github.com/JuliaGizmos/Observables.jl) are containers which can invoke callbacks whenever their stored value is changed.
 # Each property of a `RecoPlan` is an `Òbservable` to which functions can be attached. These function listen to changes of the Observables value.
 # This can be used to store "logic" about the parameter within a plan, such as a function to update and visualize the current state of a plan or to calculate default values whenever a parameter changes.
-# In this documentation we will focus on the interaction between `RecoPlans` and `Observables`. For more details on the `Observables` API we refer to the [package](https://juliagizmos.github.io/Observables.jl/stable/) and [Makie](https://docs.makie.org/dev/explanations/Observables) documentation.
+
+# In this documentation we will focus on the interaction between `RecoPlans` and `Observables`. For more details on the `Observables` API we refer to the [package](https://juliagizmos.github.io/Observables.jl/stable/) and [Makie](https://docs.makie.org/stable/explanations/observables) documentation.
 using Observables
 plan = RecoPlan(DirectRadonAlgorithm; parameter = RecoPlan(DirectRadonParameters; 
         pre = RecoPlan(RadonPreprocessingParameters; frames = collect(1:3)), 

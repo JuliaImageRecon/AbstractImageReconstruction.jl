@@ -30,6 +30,17 @@ function toKwargs!(dict, value; flatten::Vector{DataType} = DataType[], ignore::
   return dict
 end
 
+"""
+    toKwargs(value::AbstractImageReconstructionParameters; kwargs...)
+
+Convert a `AbstractImageReconstructionParameters` to a `Dict{Symbol, Any}` of each property.
+
+Optional keyword arguments:
+* flatten::Vector{DataType}: Types to flatten, per default only `AbstractImageReconstructionParameters` are flattened.
+* ignore::Vector{Symbol}: Properties to ignore.
+* default::Dict{Symbol, Any}: Default values for properties that are missing.
+* overwrite::Dict{Symbol, Any}: Overwrite values for properties.
+"""
 function toKwargs(v::AbstractImageReconstructionParameters; flatten::Union{Vector{DataType}, Nothing} = nothing, kwargs...)
   dict = Dict{Symbol, Any}()
   return toKwargs!(dict, v; flatten = isnothing(flatten) ? [AbstractImageReconstructionParameters] : flatten, kwargs...)
@@ -41,7 +52,11 @@ function toKwargs(v::Vector{<:AbstractImageReconstructionParameters}; flatten::U
   return dict
 end
 
+"""
+    fromKwargs(type::Type{T}; kwargs...) where {T}
 
+Create a new instance of `type` from the keyword arguments. Only properties that are part of `type` are considered.
+"""
 function fromKwargs(type::Type{T}; kwargs...) where {T}
   args = Dict{Symbol, Any}()
   dict = values(kwargs)
@@ -82,11 +97,21 @@ toTOML(x::Array) = toTOML.(x)
 toTOML(x::Type{T}) where T = string(x)
 toTOML(x::Nothing) = Dict()
 
+"""
+    toDict(value)
+
+Recursively convert `value` to a `Dict{String, Any}` using `toDict!`.
+"""
 function toDict(value)
   dict = Dict{String, Any}()
   return toDict!(dict, value)
 end
 
+"""
+    toDict!(dict, value)
+
+Extracts metadata such as the module and type name from `value` and adds it to `dict`. The value-representation of `value` is added using `toDictValue!`.
+"""
 function toDict!(dict, value)
   dict[MODULE_TAG] = toDictModule(value)
   dict[TYPE_TAG] = toDictType(value)
@@ -95,6 +120,11 @@ function toDict!(dict, value)
 end
 toDictModule(value) = parentmodule(typeof(value))
 toDictType(value) = nameof(typeof(value))
+"""
+    toDictValue!(dict, value)
+
+Extracts the value-representation of `value` and adds it to `dict`. The default implementation for structs with fields adds each field of the argument as a key-value pair with the value being provided by the `toDictValue` function.
+"""
 function toDictValue!(dict, value)
   for field in fieldnames(typeof(value))
     dict[string(field)] = toDictValue(fieldtype(typeof(value), field), getfield(value, field))
@@ -106,6 +136,11 @@ function toDictValue!(dict, value::Function)
   # NOP
 end
 
+"""
+    toDictValue(value)
+
+Transform `value` to a value-representation in a dict that can later be serialized as a TOML file.
+"""
 toDictValue(type, value) = toDictValue(value)
 function toDictValue(x)
   if fieldcount(typeof(x)) > 0

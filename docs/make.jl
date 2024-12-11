@@ -1,4 +1,4 @@
-using Documenter, Literate, AbstractImageReconstruction
+using Documenter, Literate, AbstractImageReconstruction, Observables
 
 # Generate examples
 OUTPUT_BASE = joinpath(@__DIR__(), "src/generated")
@@ -40,7 +40,7 @@ makedocs(
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",
         ],
-        #"API Reference" => Any["Solvers" => "API/solvers.md",
+        "API Reference" => "API/api.md",
         #"Regularization Terms" => "API/regularization.md"],
 
     ],

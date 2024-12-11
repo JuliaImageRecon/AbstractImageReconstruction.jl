@@ -15,11 +15,22 @@ function planpath(m::Module, name::AbstractString)
 end
 
 export savePlan
-savePlan(filename::AbstractString, plan::RecoPlan) = toTOML(filename, plan)
+"""
+    savePlan(file::Union{AbstractString, IO}, plan::RecoPlan)
+
+Save the `plan` to the `file` in TOML format.
+See also `loadPlan`, `toTOML`, `toDict`.
+"""
+savePlan(file::Union{AbstractString, IO}, plan::RecoPlan) = toTOML(file, plan)
 savePlan(m::Module, planname::AbstractString, plan::RecoPlan) = savePlan(planpath(m, planname), plan)
 
 toDictModule(plan::RecoPlan{T}) where {T} = parentmodule(T)
 toDictType(plan::RecoPlan{T}) where {T} = RecoPlan{getfield(parentmodule(T), nameof(T))}
+"""
+    toDictValue!(dict, plan::RecoPlan)
+
+Adds the properties of `plan` to `dict` using `toDictValue` for each not missing field. Additionally, adds each listener::AbstractPlanListener to the dict.
+"""
 function toDictValue!(dict, value::RecoPlan)
   listenerDict = Dict{String, Any}()
   for field in propertynames(value)
@@ -42,6 +53,12 @@ end
 
 export loadPlan
 loadPlan(m::Module, name::AbstractString, modules::Vector{Module}) = loadPlan(planpath(m, name), modules)
+"""
+    loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
+  
+Load a `RecoPlan` from a TOML file. The `modules` argument is a vector of modules that contain the types used in the plan.
+After loading the plan, the listeners are attached to the properties using `loadListener!`.
+"""
 function loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
   dict = TOML.parse(filename)
   modDict = createModuleDataTypeDict(modules)
@@ -179,6 +196,11 @@ function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where 
   end
 end
 export loadListener
+"""
+    loadListener!(plan, name::Symbol, dict, modDict)
+
+Load a listener from `dict` and attach it to property `name` of `plan`
+"""
 function loadListener!(plan,  name::Symbol, dict, modDict)
   type = tomlType(dict, modDict)
   return loadListener!(type, plan, name, dict, modDict)
