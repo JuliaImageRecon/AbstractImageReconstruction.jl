@@ -1,4 +1,10 @@
 export ProcessResultCache
+"""
+    ProcessResultCache(params::AbstractImageReconstructionParameters; maxsize = 1, kwargs...)
+
+Cache of size `maxsize` for the result of `process` methods. The cache is based on the `hash` of the inputs of the `process` function. Cache is shared between all algorithms constructed from the same plan.
+The cache is transparent for properties of the underlying parameter. Cache can be invalidated by calling `empty!` on the cache.
+"""
 Base.@kwdef mutable struct ProcessResultCache{P <: AbstractImageReconstructionParameters} <: AbstractImageReconstructionParameters
   param::P
   const maxsize::Int64 = 1
@@ -64,7 +70,7 @@ function validvalue(plan, union::UnionAll, value::RecoPlan{<:ProcessResultCache}
 end
 
 # Do not serialize cache and lock, only param
-function addDictValue!(dict, cache::RecoPlan{<:ProcessResultCache})
+function toDictValue!(dict, cache::RecoPlan{<:ProcessResultCache})
   size = cache.maxsize
   if !ismissing(size)
     dict["maxsize"] = size
@@ -86,6 +92,11 @@ function loadPlan!(plan::RecoPlan{<:ProcessResultCache}, dict::Dict{String, Any}
   return plan
 end
 
+"""
+    empty!(cache::ProcessResultCache)
+
+Empty the cache of the `ProcessResultCache`
+"""
 Base.empty!(cache::ProcessResultCache) = empty!(cache.cache)
 
 """

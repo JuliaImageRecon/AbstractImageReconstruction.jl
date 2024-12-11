@@ -2,6 +2,9 @@
 
 [![Build Status](https://github.com/JuliaImageRecon/AbstractImageReconstruction.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/JuliaImageRecon/AbstractImageReconstruction.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaImageRecon.github.io/AbstractImageReconstruction.jl/latest)
+
+
 This package contains an interface and type hierarchy for image reconstruction algorithms and their parameters, together with associated utility tools.
 
 ## Installation

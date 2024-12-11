@@ -6,7 +6,7 @@ using Observables
 using Scratch
 using LRUCache
 
-import Base: put!, take!, fieldtypes, fieldtype, ismissing, propertynames, parent, hash
+import Base: put!, take!, fieldtypes, fieldtype, ismissing, propertynames, parent, hash, wait, isready
 
 include("AlgorithmInterface.jl")
 include("StructTransforms.jl")
