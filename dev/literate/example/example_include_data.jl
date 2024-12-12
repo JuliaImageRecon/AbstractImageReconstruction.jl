@@ -31,4 +31,5 @@ angles, shape, sinograms, images = isDataDefined ? (angles, shape, sinograms, im
     sinograms[:, :, :, i] = Array(RadonKA.radon(images[:, :, :, i], angles)) 
   end 
   return angles, shape, sinograms, images
-end;
+end
+nothing
