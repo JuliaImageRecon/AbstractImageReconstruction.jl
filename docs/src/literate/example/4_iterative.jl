@@ -64,7 +64,7 @@ function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, para
 end
 
 # Note that initially the operator is `nothing` and the processing step would fail as it stands. To "fix" this we define a `process` method for the algorithm instance which creates the operator and stores it in the algorithm:
-function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::IterativeRadonReconstructionParameters, ::Nothing, data::AbstractArray{T, 4}) where {T}
+function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::AbstractIterativeRadonReconstructionParameters, ::Nothing, data::AbstractArray{T, 4}) where {T}
   op = RadonOp(T; shape = params.shape, angles = params.angles)
   algo.op = op
   return process(AbstractIterativeRadonAlgorithm, params, op, data)
