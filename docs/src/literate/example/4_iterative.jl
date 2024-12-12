@@ -64,7 +64,7 @@ function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, para
 end
 
 # Note that initially the operator is `nothing` and the processing step would fail as it stands. To "fix" this we define a `process` method for the algorithm instance which creates the operator and stores it in the algorithm:
-function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::IterativeRadonReconstructionParameters, ::Nothing, data::AbstractArray{T, 4}) where {T}
+function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::AbstractIterativeRadonReconstructionParameters, ::Nothing, data::AbstractArray{T, 4}) where {T}
   op = RadonOp(T; shape = params.shape, angles = params.angles)
   algo.op = op
   return process(AbstractIterativeRadonAlgorithm, params, op, data)
@@ -73,11 +73,15 @@ end
 # Our algorithm is not type stable. To fix this, we would need to know the element type of the sinograms during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.
 # Often times the performance impact of this is negligible as the critical sections are in the preprocessing or the iterative solver, especially since we still dispatch on the operator.
 
-# To finish up the implementation we need to implement the `put!`, `take!` and `parameters` functions:
+# To finish up the implementation we need to implement the remaining runtime related functions:
 Base.take!(algo::IterativeRadonAlgorithm) = Base.take!(algo.output)
 function Base.put!(algo::IterativeRadonAlgorithm, data::AbstractArray{T, 4}) where {T}
   lock(algo.output) do
     put!(algo.output, process(algo, algo.parameter, data))
   end
 end
+Base.lock(algo::IterativeRadonAlgorithm) = lock(algo.output)
+Base.unlock(algo::IterativeRadonAlgorithm) = unlock(algo.output)
+Base.isready(algo::IterativeRadonAlgorithm) = isready(algo.output)
+Base.wait(algo::IterativeRadonAlgorithm) = wait(algo.output)
 AbstractImageReconstruction.parameter(algo::IterativeRadonAlgorithm) = algo.parameter

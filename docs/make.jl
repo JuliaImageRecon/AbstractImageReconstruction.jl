@@ -39,6 +39,7 @@ makedocs(
             "Serialization" => "generated/howto/serialization.md",
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",
+            "Multi-Threading" => "generated/howto/multi_threading.md",
         ],
         "API Reference" => "API/api.md",
         #"Regularization Terms" => "API/regularization.md"],

@@ -8,6 +8,10 @@ AbstractImageReconstruction.AbstractImageReconstructionAlgorithm
 AbstractImageReconstruction.reconstruct
 Base.put!(::AbstractImageReconstructionAlgorithm, ::Any)
 Base.take!(::AbstractImageReconstructionAlgorithm)
+Base.lock(::AbstractImageReconstructionAlgorithm)
+Base.unlock(::AbstractImageReconstructionAlgorithm)
+Base.isready(::AbstractImageReconstructionAlgorithm)
+Base.wait(::AbstractImageReconstructionAlgorithm)
 AbstractImageReconstruction.AbstractImageReconstructionParameters
 AbstractImageReconstruction.process
 AbstractImageReconstruction.parameter

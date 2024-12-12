@@ -27,16 +27,57 @@ put!(algo::AbstractImageReconstructionAlgorithm, inputs...) = error("$(typeof(al
 Remove and return a stored result from the algorithm `algo`. Blocks until a result is available.
 """
 take!(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement take!")
+"""
+    isready(algo::AbstractImageReconstructionAlgorithm)
+
+Determine if the algorithm `algo` has a result available.
+"""
+isready(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement isready")
+"""
+    wait(algo::AbstractImageReconstructionAlgorithm)
+
+Wait for a result to be available from the specified `algo`.
+"""
+wait(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement wait")
+"""
+    lock(algo::AbstractImageReconstructionAlgorithm)
+
+Acquire a lock on the algorithm `algo`. If the lock is already acquired, wait until it is released.
+
+Each `lock` must be matched with a `unlock`.
+"""
+lock(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement lock")
+"""
+    unlock(algo::AbstractImageReconstructionAlgorithm)
+
+Release a lock on the algorithm `algo`.
+"""
+unlock(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement unlock")
+"""
+    lock(fn, algo::AbstractImageReconstructionAlgorithm)
+
+Acquire the `lock` on `algo`, execute `fn` and release the `lock` afterwards.
+"""
+function lock(fn, algo::AbstractImageReconstructionAlgorithm)
+  lock(algo)
+  try
+    fn()
+  finally
+    unlock(algo)
+  end
+end
 
 export reconstruct
 """
     reconstruct(algo::T, u) where {T<:AbstractImageReconstructionAlgorithm}
 
-Reconstruct an image from input `u` using algorithm `algo`.
+Reconstruct an image from input `u` using algorithm `algo`. The `àlgo` will be `lock`ed until the result is available or an error occurs.
 """
 function reconstruct(algo::T, u) where {T<:AbstractImageReconstructionAlgorithm}
-  put!(algo, u)
-  return take!(algo)
+  lock(algo) do
+    put!(algo, u)
+    return take!(algo)
+  end
 end
 
 export process

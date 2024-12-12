@@ -1,1 +1,1 @@
-include("RuntimeAlgorithms.jl")
+include("ThreadPinnedAlgorithm.jl")
