@@ -6,7 +6,7 @@ function Base.show(io::IO, plan::RecoPlan{T}) where {T <: AbstractImageReconstru
   print(io, "RecoPlan{$T}($(join(propertynames(plan), ", ")))")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", plan::RecoPlan{T}) where {T}
+function Base.show(io::IO, ::MIME"text/plain", plan::AbstractRecoPlan{T}) where {T}
   if get(io, :compact, false)
     show(io, plan)
   else

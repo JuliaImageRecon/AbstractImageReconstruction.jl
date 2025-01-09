@@ -1,4 +1,5 @@
-export RecoPlan
+export AbstractRecoPlan, RecoPlan
+abstract type AbstractRecoPlan{T<:Union{AbstractImageReconstructionParameters, AbstractImageReconstructionAlgorithm}} end
 """
     RecoPlan{T <: Union{AbstractImageReconstructionParameters, AbstractImageReconstructionAlgorithm}}
 
@@ -9,8 +10,8 @@ Plans can be nested and form a tree. A parent plan can be accessed with `parent`
 
 Plans feature serialization with `toTOML`, `toPlan` and `loadPlan` and the ability to attach callbacks to property changes with `Òbservables` and `on`.
 """
-mutable struct RecoPlan{T<:Union{AbstractImageReconstructionParameters, AbstractImageReconstructionAlgorithm}}
-  parent::Union{Nothing, RecoPlan}
+mutable struct RecoPlan{T} <: AbstractRecoPlan{T}
+  parent::Union{Nothing, AbstractRecoPlan}
   values::Dict{Symbol, Observable{Any}}
   """
       RecoPlan(::Type{T}; kwargs...) where {T<:AbstractImageReconstructionParameters}
@@ -60,17 +61,17 @@ Return the `Observable` for the `name` property of `plan`. Equivalent to `plan[n
 Base.getindex(plan::RecoPlan{T}, name::Symbol) where {T} = getfield(plan, :values)[name]
 
 export types, type
-types(::RecoPlan{T}) where {T<:AbstractImageReconstructionParameters} = fieldtypes(T)
-type(::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionParameters} = fieldtype(T, name)
+types(::AbstractRecoPlan{T}) where {T<:AbstractImageReconstructionParameters} = fieldtypes(T)
+type(::AbstractRecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionParameters} = fieldtype(T, name)
 
-function type(plan::RecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionAlgorithm}
+function type(plan::AbstractRecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionAlgorithm}
   if name == :parameter
     return RecoPlan
   else
     error("type $(typeof(plan)) has no field $name")
   end
 end
-types(::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm} = [type(plan, name) for name in propertynames(plan)]
+types(::AbstractRecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm} = [type(plan, name) for name in propertynames(plan)]
 
 """
     setproperty!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
@@ -97,9 +98,9 @@ function Base.setproperty!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
 end
 validvalue(plan, t, value::Missing) = true
 validvalue(plan, ::Type{T}, value::X) where {T, X <: T} = true
-validvalue(plan, ::Type{T}, value::RecoPlan{<:T}) where T = true
+validvalue(plan, ::Type{T}, value::AbstractRecoPlan{<:T}) where T = true
 # RecoPlans are stripped of parameters
-validvalue(plan, t::UnionAll, ::RecoPlan{T}) where T = T <: t || T <: Base.typename(t).wrapper # Last case doesnt work for Union{...} that is a UnionAll, such as ProcessCache Unio
+validvalue(plan, t::UnionAll, ::AbstractRecoPlan{T}) where T = T <: t || T <: Base.typename(t).wrapper # Last case doesnt work for Union{...} that is a UnionAll, such as ProcessCache Unio
 validvalue(plan, t::Type{Union}, value) = validvalue(plan, t.a, value) || validvalue(plan, t.b, value)
 validvalue(plan, t, value) = false
 validvalue(plan, ::Type{arrT}, value::AbstractArray) where {T, arrT <: AbstractArray{T}} = all(x -> validvalue(plan, T, x), value)
@@ -136,15 +137,15 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReco
     end
   end
 end
-setAll!(plans::AbstractArray{<:RecoPlan}, name::Symbol, x) = foreach(p -> setAll!(p, name, x), plans) 
+setAll!(plans::AbstractArray{<:AbstractRecoPlan}, name::Symbol, x) = foreach(p -> setAll!(p, name, x), plans) 
 setAll!(plan::RecoPlan{<:AbstractImageReconstructionAlgorithm}, name::Symbol, x) = setAll!(plan.parameter, name, x)
-function setAll!(plan; kwargs...)
+function setAll!(plan::AbstractRecoPlan; kwargs...)
   for key in keys(kwargs)
     setAll!(plan, key, kwargs[key])
   end
 end
-setAll!(plan::RecoPlan, dict::Dict{Symbol, Any}) = setAll!(plan; dict...)
-setAll!(plan::RecoPlan, dict::Dict{String, Any}) = setAll!(plan, Dict{Symbol, Any}(Symbol(k) => v for (k,v) in dict))
+setAll!(plan::AbstractRecoPlan, dict::Dict{Symbol, Any}) = setAll!(plan; dict...)
+setAll!(plan::AbstractRecoPlan, dict::Dict{String, Any}) = setAll!(plan, Dict{Symbol, Any}(Symbol(k) => v for (k,v) in dict))
 
 export clear!
 """
@@ -186,7 +187,7 @@ parent!(plan::RecoPlan, parent::RecoPlan) = setfield!(plan, :parent, parent)
 
 Return a vector of property names of `plan` in its parent, s.t. `getproperty(parent(plan), last(parentproperties(plan))) === plan`. Return an empty vector if `plan` has no parent.
 """
-function parentproperties(plan::RecoPlan)
+function parentproperties(plan::AbstractRecoPlan)
   trace = Symbol[]
   return parentproperties!(trace, plan)
 end
@@ -195,7 +196,7 @@ end
 
 Return the property name of `plan` in its parent, s.t. `getproperty(parent(plan), parentproperty(plan)) === plan`. Return `nothing` if `plan` has no parent.
 """
-function parentproperty(plan::RecoPlan)
+function parentproperty(plan::AbstractRecoPlan)
   p = parent(plan)
   if !isnothing(p)
     for property in propertynames(p)
@@ -206,7 +207,7 @@ function parentproperty(plan::RecoPlan)
   end
   return nothing
 end
-function parentproperties!(trace::Vector{Symbol}, plan::RecoPlan)
+function parentproperties!(trace::Vector{Symbol}, plan::AbstractRecoPlan)
   p = parent(plan)
   parentprop = parentproperty(plan)
   if !isnothing(p) && !isnothing(parentprop)
@@ -247,7 +248,7 @@ function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionParameter
   return T(;fields...)
 end
 build(plans::AbstractArray{<:RecoPlan}) = map(build, plans)
-function build(plan::RecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm}
+function build(plan::AbstractRecoPlan{T}) where {T<:AbstractImageReconstructionAlgorithm}
   parameter = build(getproperty(plan, :parameter))
   return T(parameter)
 end
@@ -272,7 +273,7 @@ function toPlan(param::AbstractImageReconstructionParameters)
   setAll!(plan; args...)
   return plan
 end
-function toPlan(parent::RecoPlan, x)
+function toPlan(parent::AbstractRecoPlan, x)
   plan = toPlan(x)
   parent!(plan, parent)
   return plan
