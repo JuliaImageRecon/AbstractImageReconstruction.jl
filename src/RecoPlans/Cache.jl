@@ -5,7 +5,7 @@ export ProcessResultCache
 Cache of size `maxsize` for the result of `process` methods. The cache is based on the `hash` of the inputs of the `process` function. Cache is shared between all algorithms constructed from the same plan.
 The cache is transparent for properties of the underlying parameter. Cache can be invalidated by calling `empty!` on the cache.
 """
-Base.@kwdef mutable struct ProcessResultCache{P <: AbstractImageReconstructionParameters} <: AbstractImageReconstructionParameters
+Base.@kwdef mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
   const maxsize::Int64 = 1
   cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)

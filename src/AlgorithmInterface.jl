@@ -14,6 +14,14 @@ Abstract type for image reconstruction parameters.  An algorithm consists of one
 """
 abstract type AbstractImageReconstructionParameters end
 
+export AbstractUtilityReconstructionParameters
+"""
+    AbstractUtilityReconstructionParameters{T <: AbstractImageReconstructionParameters}
+
+Abstract type that offer utility functions for a given reconstruction parameter and its associated `process` steps. Utility `process` steps should return the same result as `T` for the same inputs.
+"""
+abstract type AbstractUtilityReconstructionParameters{T <: AbstractImageReconstructionParameters} end
+
 export put!, take!
 """
     put!(algo::AbstractImageReconstructionAlgorithm, inputs...)
@@ -91,7 +99,12 @@ If not implemented for an instance of `algo`, the default implementation is call
 """
 function process end
 process(algo::AbstractImageReconstructionAlgorithm, param::AbstractImageReconstructionParameters, inputs...) = process(typeof(algo), param, inputs...)
+"""
+    process(algo::Union{A, Type{A}}, param::AbstractUtilityReconstructionParameters{P}, inputs...) where {A <: AbstractImageReconstructionAlgorithm, P <: AbstractImageReconstructionParameters}
 
+Process `inputs` with algorithm `algo` and return the result as if the arguments were given to `P`. Examples of utility `process` are processes which offer caching or remote execution. 
+"""
+process(::A, param::AbstractUtilityReconstructionParameters{P}, inputs...) where {A, P} = error("$(typeof(param)) must implement `process` for $A and given inputs")
 """
 Enable multiple process steps by supplying a Vector of parameters
 """
