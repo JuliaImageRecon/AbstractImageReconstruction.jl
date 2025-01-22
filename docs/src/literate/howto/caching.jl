@@ -10,7 +10,7 @@ include("../../literate/example/example_include_all.jl") #hide
 # This How-To builds on the results of the example sections.
 
 # ## ProcessResultCache
-# The caching mechanism is based on the `ProcessResultCache` type. This type wraps around a different `ÀbstractImageReconstructionParameter` and caches the result of a processing step.
+# The caching mechanism is based on the `ProcessResultCache` type. This type wraps around a different `AbstractImageReconstructionParameter` and caches the result of a processing step.
 # Such a `process`ing step which offer functionality to other `process` steps is a `AbstractUtilityReconstructionParameter`. These utility steps should return the same result as if the inner step was called directly.
 
 # The cache itself is connected to a `RecoPlan` and any instances build from the same plan instance share this cache and can reuse the result of the processing step.

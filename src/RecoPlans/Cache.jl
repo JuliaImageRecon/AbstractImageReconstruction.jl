@@ -5,14 +5,18 @@ export ProcessResultCache
 Cache of size `maxsize` for the result of `process` methods. The cache is based on the `hash` of the inputs of the `process` function. Cache is shared between all algorithms constructed from the same plan.
 The cache is transparent for properties of the underlying parameter. Cache can be invalidated by calling `empty!` on the cache.
 """
-Base.@kwdef mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
+mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
-  const maxsize::Int64 = 1
-  cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
+  const maxsize::Int64
+  cache::LRU{UInt64, Any}
+  function ProcessResultCache(; param::Union{P, AbstractUtilityReconstructionParameters{P}}, maxsize::Int64 = 1, cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)) where P
+    return new{P}(param, maxsize, cache)
+  end
 end
 ProcessResultCache(param::AbstractImageReconstructionParameters; kwargs...) = ProcessResultCache(;param, kwargs...)
 process(algo::A, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algo, param, inputs...)
 process(algoT::Type{<:A}, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algoT, param, inputs...)
+parameter(param::ProcessResultCache) = param.param
 
 function hashed_process(algo, param::ProcessResultCache, inputs...)
   id = hash(param.param, hash(inputs, hash(algo)))

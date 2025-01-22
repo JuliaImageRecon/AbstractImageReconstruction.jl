@@ -20,7 +20,7 @@ export AbstractUtilityReconstructionParameters
 
 Abstract type that offer utility functions for a given reconstruction parameter and its associated `process` steps. Utility `process` steps should return the same result as `T` for the same inputs.
 """
-abstract type AbstractUtilityReconstructionParameters{T <: AbstractImageReconstructionParameters} end
+abstract type AbstractUtilityReconstructionParameters{T <: AbstractImageReconstructionParameters} <: AbstractImageReconstructionParameters end
 
 export put!, take!
 """
@@ -122,4 +122,10 @@ export parameter
 
 Return the parameters of the algorithm `algo`.
 """
-parameter(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement parameter")
+parameter(algo::AbstractImageReconstructionAlgorithm) = error("$(typeof(algo)) must implement `parameter`")
+"""
+    parameter(param::AbstractUtilityReconstructionParameters)
+  
+Return the wrapped parameter. Can themselves be utility parameters again
+"""
+parameter(param::AbstractUtilityReconstructionParameters) = error("$(typeof(param)) must implement `parameter`")
