@@ -59,7 +59,12 @@ loadPlan(m::Module, name::AbstractString, modules::Vector{Module}) = loadPlan(pl
 Load a `RecoPlan` from a TOML file. The `modules` argument is a vector of modules that contain the types used in the plan.
 After loading the plan, the listeners are attached to the properties using `loadListener!`.
 """
-function loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
+function loadPlan(filename::String, modules)
+  open(filename) do io
+    return loadPlan(io, modules)
+  end
+end
+function loadPlan(filename::IO, modules::Vector{Module})
   dict = TOML.parse(filename)
   modDict = createModuleDataTypeDict(modules)
   plan = loadPlan!(dict, modDict)
@@ -189,7 +194,7 @@ function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where 
     end
   end
   for property in propertynames(plan)
-    value = plan[property]
+    value = getproperty(plan, property)
     if value isa RecoPlan
       loadListeners!(root, value, dict[string(property)], modDict)
     end
@@ -201,7 +206,7 @@ export loadListener
 
 Load a listener from `dict` and attach it to property `name` of `plan`
 """
-function loadListener!(plan,  name::Symbol, dict, modDict)
+function loadListener!(plan, name::Symbol, dict, modDict)
   type = tomlType(dict, modDict)
   return loadListener!(type, plan, name, dict, modDict)
 end

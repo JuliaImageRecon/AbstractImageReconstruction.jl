@@ -92,7 +92,9 @@ function loadPlan!(plan::RecoPlan{<:ProcessResultCache}, dict::Dict{String, Any}
     param = loadPlan!(dict["param"], modDict)
     parent!(param, plan)
   end
-  setvalues!(plan; param, cache, maxsize)
+  setproperty!(plan, :maxsize, maxsize)
+  setproperty!(plan, :cache, cache)
+  setproperty!(plan, :param, param)
   return plan
 end
 

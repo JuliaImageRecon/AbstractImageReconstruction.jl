@@ -38,7 +38,7 @@ function toDictValue!(dict, value::LinkedPropertyListener)
   dict["fn"] = toDict(value.fn)
 end
 
-function loadListener!(::Type{LinkedPropertyListener}, target::RecoPlan, targetProp, dict, args...)
+function loadListener!(::Type{LinkedPropertyListener}, target::RecoPlan, targetProp, dict, modDict)
   # Find the root plan
   root = parent(target)
   while !isnothing(parent(root))
@@ -48,7 +48,7 @@ function loadListener!(::Type{LinkedPropertyListener}, target::RecoPlan, targetP
   # From the root plan, find the source plan
   source = root
   for param in dict["plan"][1:end]
-    source = getproperty(plan, Symbol(param))
+    source = getproperty(source, Symbol(param))
   end
   sourceProp = Symbol(dict["field"])
 
