@@ -20,6 +20,6 @@ Observables.on(f, plan::RecoPlan, property::Symbol; kwargs...) = on(f, plan[prop
 
 Remove `f` from the listeners of `property` of `plan`.
 """
-Observables.off(plan::RecoPlan, property::Symbol, f) = off(f, plan[property])
+Observables.off(plan::RecoPlan, property::Symbol, f) = off(plan[property], f)
 
 include("LinkedPropertyListener.jl")

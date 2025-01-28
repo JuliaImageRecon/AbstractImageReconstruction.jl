@@ -139,11 +139,21 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReco
 end
 setAll!(plans::AbstractArray{<:AbstractRecoPlan}, name::Symbol, x) = foreach(p -> setAll!(p, name, x), plans) 
 setAll!(plan::RecoPlan{<:AbstractImageReconstructionAlgorithm}, name::Symbol, x) = setAll!(plan.parameter, name, x)
+"""
+    setAll!(plan::AbstractRecoPlan; kwargs...)
+
+Call `setAll!` with each given keyword argument.
+"""
 function setAll!(plan::AbstractRecoPlan; kwargs...)
   for key in keys(kwargs)
     setAll!(plan, key, kwargs[key])
   end
 end
+"""
+    setAll!(plan::AbstractRecoPlan, dict::Union{Dict{Symbol, Any}, Dict{String, Any}})
+
+Call `setAll!` with each entries of the dict.
+"""
 setAll!(plan::AbstractRecoPlan, dict::Dict{Symbol, Any}) = setAll!(plan; dict...)
 setAll!(plan::AbstractRecoPlan, dict::Dict{String, Any}) = setAll!(plan, Dict{Symbol, Any}(Symbol(k) => v for (k,v) in dict))
 
