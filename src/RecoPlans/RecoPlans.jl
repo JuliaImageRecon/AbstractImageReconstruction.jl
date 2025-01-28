@@ -60,6 +60,24 @@ Return the `Observable` for the `name` property of `plan`. Equivalent to `plan[n
 """
 Base.getindex(plan::RecoPlan{T}, name::Symbol) where {T} = getfield(plan, :values)[name]
 
+# Tree Interface
+"""
+    parent(plan::RecoPlan)
+
+Return the parent of `plan`.
+"""
+AbstractTrees.parent(plan::RecoPlan) = getfield(plan, :parent)
+AbstractTrees.ParentLinks(::Type{<:RecoPlan}) = AbstractTrees.StoredParents()
+function AbstractTrees.children(plan::RecoPlan)
+  result = Vector{RecoPlan}()
+  for prop in propertynames(plan)
+    if getproperty(plan, prop) isa RecoPlan
+      push!(result, getproperty(plan, prop))
+    end
+  end
+  return result
+end
+
 export types, type
 types(::AbstractRecoPlan{T}) where {T<:AbstractImageReconstructionParameters} = fieldtypes(T)
 type(::AbstractRecoPlan{T}, name::Symbol) where {T<:AbstractImageReconstructionParameters} = fieldtype(T, name)
@@ -179,13 +197,7 @@ end
 clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImageReconstructionAlgorithm} = clear!(plan.parameter, preserve)
 
 
-export parent, parent!, parentproperty, parentproperties
-"""
-    parent(plan::RecoPlan)
-
-Return the parent of `plan`.
-"""
-parent(plan::RecoPlan) = getfield(plan, :parent)
+export parent!, parentproperty, parentproperties
 """
     parent!(plan::RecoPlan, parent::RecoPlan)
 

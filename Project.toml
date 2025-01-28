@@ -4,6 +4,7 @@ authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
 version = "0.4.0"
 
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
 Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
@@ -11,6 +12,7 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
 
 [compat]
+AbstractTrees = "0.4"
 LRUCache = "1.6"
 Observables = "0.5.5"
 Scratch = "1.2"
@@ -19,14 +21,14 @@ ThreadPools = "2.1"
 julia = "1.9"
 
 [extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ImageGeoms = "9ee76f2b-840d-4475-b6d6-e485c9297852"
 ImagePhantoms = "71a99df6-f52c-4da1-bd2a-69d6f37f3252"
+LinearOperatorCollection = "a4a2c56f-fead-462a-a3ab-85921a5f2575"
 RadonKA = "86de8297-835b-47df-b249-c04e8db91db5"
 RegularizedLeastSquares = "1e9c538a-f78c-5de5-8ffb-0b6dbe892d23"
-LinearOperatorCollection = "a4a2c56f-fead-462a-a3ab-85921a5f2575"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "RadonKA", "ImagePhantoms", "ImageGeoms", "CairoMakie", "LinearOperatorCollection", "RegularizedLeastSquares", "Statistics"]
