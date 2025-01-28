@@ -4,6 +4,8 @@
 
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaImageRecon.github.io/AbstractImageReconstruction.jl)
 
+[![codecov.io](http://codecov.io/github/JuliaImageRecon/AbstractImageReconstruction.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaImageRecon/AbstractImageReconstruction.jl?branch=master)
+
 
 This package contains an interface and type hierarchy for image reconstruction algorithms and their parameters, together with associated utility tools.
 
