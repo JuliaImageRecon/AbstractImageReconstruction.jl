@@ -137,7 +137,7 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReco
   # Filter out nested plans
   nestedPlans = filter(entry -> begin 
     val = Observables.to_value(last(entry))
-    return isa(val, RecoPlan) || isa(val, AbstractArray{<:RecoPlan})
+    return isa(val, AbstractRecoPlan) || isa(val, AbstractArray{<:AbstractRecoPlan})
   end, fields)
 
   # Recursively call setAll! on nested plans
