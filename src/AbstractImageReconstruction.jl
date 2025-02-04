@@ -8,7 +8,7 @@ using LRUCache
 using AbstractTrees
 
 import AbstractTrees: parent, children
-import Base: put!, take!, fieldtypes, fieldtype, ismissing, propertynames, parent, hash, wait, isready, lock, unlock
+import Base: put!, take!, fieldtypes, fieldtype, ismissing, propertynames, hash, wait, isready, lock, unlock
 
 include("AlgorithmInterface.jl")
 include("StructTransforms.jl")
