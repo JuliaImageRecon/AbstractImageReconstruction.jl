@@ -1,19 +1,3 @@
-export plandir, planpath
-function plandir(m::Module)
-  if m != AbstractImageReconstruction && hasproperty(m, :plandir)
-    return getproperty(m, :plandir)()
-  else
-    return @get_scratch!(string(m))
-  end
-end
-function planpath(m::Module, name::AbstractString) 
-  if m != AbstractImageReconstruction && hasproperty(m, :planpath)
-    return getproperty(m, :planpath)(name)
-  else
-    return joinpath(plandir(m), string(name, ".toml"))
-  end
-end
-
 export savePlan
 """
     savePlan(file::Union{AbstractString, IO}, plan::RecoPlan)
@@ -22,7 +6,6 @@ Save the `plan` to the `file` in TOML format.
 See also `loadPlan`, `toTOML`, `toDict`.
 """
 savePlan(file::Union{AbstractString, IO}, plan::RecoPlan) = toTOML(file, plan)
-savePlan(m::Module, planname::AbstractString, plan::RecoPlan) = savePlan(planpath(m, planname), plan)
 
 toDictModule(plan::RecoPlan{T}) where {T} = parentmodule(T)
 toDictType(plan::RecoPlan{T}) where {T} = RecoPlan{getfield(parentmodule(T), nameof(T))}
@@ -52,7 +35,6 @@ function toDictValue!(dict, value::RecoPlan)
 end
 
 export loadPlan
-loadPlan(m::Module, name::AbstractString, modules::Vector{Module}) = loadPlan(planpath(m, name), modules)
 """
     loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
   
