@@ -25,6 +25,7 @@ function hashed_process(algo, param::ProcessResultCache, inputs...)
   end
   return result
 end
+parameter(param::ProcessResultCache) = param.param
 
 function clear!(plan::RecoPlan{<:ProcessResultCache}, preserve::Bool = true)
   dict = getfield(plan, :values)
