@@ -45,7 +45,7 @@ plan.parameter.pre.frames = collect(1:5)
 # Instead of traversing the properties of the plan/algorithm, we can also use the `setAll!` function to set all parameters of the same of the plan at once:
 setAll!(plan, :solver, FISTA);
 # This also works with dictionaries of symbols and values:
-dict = Dict{Symbol, Any}(:reg => [L1Regularization(0.001), PositiveRegularization()])
+dict = Dict{Symbol, Any}(:reg => [L1Regularization(0.001)])
 setAll!(plan, dict);
 
 # Once we have parametertized our plan, we can build the algorithm from it:
