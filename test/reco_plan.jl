@@ -3,7 +3,7 @@
   reco = IterativeRadonReconstructionParameters(; shape = size(images)[1:3], angles = angles, iterations = 1, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR);
   algo = IterativeRadonAlgorithm(IterativeRadonParameters(pre, reco))
 
-
+  
   @testset "Construction" begin
     # From algorithm
     plan_fromAlgo = toPlan(algo)
@@ -167,6 +167,23 @@
   end
 
   @testset "Traversal" begin
+    plan = toPlan(algo)
+
+    parameter = plan.parameter
+    @test parameter isa RecoPlan
+    @test parameter == first(children(plan))
+    @test plan === AbstractTrees.parent(parameter)
+
+    pre_plan = parameter.pre
+    reco_plan = parameter.reco
+    param_children = children(parameter)
+    @test length(param_children) == 2
+    for child in [pre_plan, reco_plan]
+      @test child isa RecoPlan
+      @test parameter == AbstractTrees.parent(child)
+      @test in(child, param_children)
+    end
+
   end
 
 end
