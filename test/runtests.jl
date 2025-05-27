@@ -1,5 +1,6 @@
 using AbstractImageReconstruction
 using AbstractImageReconstruction.Observables
+using AbstractImageReconstruction.AbstractTrees
 using Test
 using RegularizedLeastSquares
 

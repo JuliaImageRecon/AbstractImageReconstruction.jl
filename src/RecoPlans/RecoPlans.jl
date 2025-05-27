@@ -131,7 +131,21 @@ export setAll!
 
 Recursively set the property `name` of each nested `RecoPlan` of `plan` to `x`.
 """
-function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReconstructionParameters}
+function setAll!(plan::AbstractRecoPlan, name::Symbol, x)
+  set = Ref(false)
+  found = Ref(false)
+  setAll!(plan, name, x, set, found)
+  if !set[]
+    if !found[]
+      @warn "Could not set all `$name` properties of plan: Property not found"
+    else
+      @warn "Could not set all `$name` properties of plan: Property of type $(typeof(x)) cannot be converted to the correct type"
+    end
+  end
+  return nothing
+end
+
+function setAll!(plan::RecoPlan{T}, name::Symbol, x, set, found) where {T<:AbstractImageReconstructionParameters}
   fields = getfield(plan, :values)
   
   # Filter out nested plans
@@ -142,21 +156,23 @@ function setAll!(plan::RecoPlan{T}, name::Symbol, x) where {T<:AbstractImageReco
 
   # Recursively call setAll! on nested plans
   for (key, nested) in nestedPlans
-    key != name && setAll!(Observables.to_value(nested), name, x)
+    key != name && setAll!(Observables.to_value(nested), name, x, set, found)
   end
 
   # Set the value of the field
   if hasproperty(plan, name)
     try
+      found[] |= true
       Base.setproperty!(plan, name, x)
+      set[] |= true
     catch ex
-      @error ex
       @warn "Could not set $name of $T with value of type $(typeof(x))"
     end
   end
+  return nothing
 end
-setAll!(plans::AbstractArray{<:AbstractRecoPlan}, name::Symbol, x) = foreach(p -> setAll!(p, name, x), plans) 
-setAll!(plan::RecoPlan{<:AbstractImageReconstructionAlgorithm}, name::Symbol, x) = setAll!(plan.parameter, name, x)
+setAll!(plans::AbstractArray{<:AbstractRecoPlan}, name::Symbol, args...) = foreach(p -> setAll!(p, name, args...), plans) 
+setAll!(plan::RecoPlan{<:AbstractImageReconstructionAlgorithm}, name::Symbol, args...) = setAll!(plan.parameter, name, args...)
 """
     setAll!(plan::AbstractRecoPlan; kwargs...)
 
