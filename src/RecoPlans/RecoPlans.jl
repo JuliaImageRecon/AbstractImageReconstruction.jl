@@ -108,7 +108,7 @@ function Base.setproperty!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
     getfield(plan, :values)[name][] = convert(t, x)
   end
 
-  if x isa RecoPlan
+  if x isa AbstractRecoPlan
     parent!(x, plan)
   end
 
@@ -219,7 +219,7 @@ export parent!, parentproperty, parentproperties
 
 Set the parent of `plan` to `parent`.
 """
-parent!(plan::RecoPlan, parent::RecoPlan) = setfield!(plan, :parent, parent)
+parent!(plan::RecoPlan, parent::AbstractRecoPlan) = setfield!(plan, :parent, parent)
 """
     parentproperties(plan::RecoPlan)
 
