@@ -7,9 +7,20 @@ The cache is transparent for properties of the underlying parameter. Cache can b
 """
 mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
-  const maxsize::Int64
-  cache::LRU{UInt64, Any}
+  maxsize::Int64
+  const cache::LRU{UInt64, Any}
   function ProcessResultCache(; param::Union{P, AbstractUtilityReconstructionParameters{P}}, maxsize::Int64 = 1, cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)) where P
+    if maxsize != cache.maxsize
+      @warn "Incosistent cache size detected. Found maxsize $maxsize and cache size $(cache.maxsize). This can happen when a cache is resized. Cache will use $(cache.maxsize)"
+    end
+    return ProcessResultCache(cache; param)
+  end
+  function ProcessResultCache(maxsize::Int64; param::Union{P, AbstractUtilityReconstructionParameters{P}}) where P
+    cache::LRU{UInt64, Any} = LRU{UInt64, Any}(maxsize = maxsize)
+    return new{P}(param, maxsize, cache)
+  end
+  function ProcessResultCache(cache::LRU{UInt64, Any}; param::Union{P, AbstractUtilityReconstructionParameters{P}}) where P
+    maxsize = cache.maxsize
     return new{P}(param, maxsize, cache)
   end
 end
@@ -45,6 +56,10 @@ function Base.setproperty!(plan::RecoPlan{<:ProcessResultCache}, name::Symbol, v
   if in(name, [:param, :cache, :maxsize])
     t = type(plan, name)
     getfield(plan, :values)[name][] = validvalue(plan, t, value) ? value : convert(t, x)
+    if name == :maxsize && !ismissing(plan.cache)
+      @warn "Resizing cache will affect all algorithms constructed from this plan" maxlog = 3
+      resize!(plan.cache; maxsize = plan.maxsize)
+    end
   else
     setproperty!(plan.param, name, value)
   end
@@ -104,7 +119,17 @@ end
 Empty the cache of the `ProcessResultCache`
 """
 Base.empty!(cache::ProcessResultCache) = empty!(cache.cache)
+"""
+    resize!(cache::ProcessResultCache)
 
+Resize the cache. This will affect all algorithms sharing the cache, i.e. all algorithms constructed from the same RecoPlan.
+"""
+function Base.resize!(cache::ProcessResultCache, n)
+  @warn "Resizing cache will affect all algorithms sharing the cache. Resizing will not update maxsize in RecoPlan" maxlog = 3
+  cache.maxsize = n
+  resize!(cache.cache; maxsize = n)
+  return cache
+end
 """
     hash(parameter::AbstractImageReconstructionParameters, h)
 
