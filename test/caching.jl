@@ -1,9 +1,9 @@
 @testset "Caching" begin
-  mutable struct CacheableParameter <: AbstractImageReconstructionParameters
+  Base.@kwdef mutable struct CacheableParameter <: AbstractImageReconstructionParameters
     factor::Int64
     cache_misses::Ref{Int64}
   end
-  mutable struct PureCacheableParameter <: AbstractImageReconstructionParameters
+  Base.@kwdef mutable struct PureCacheableParameter <: AbstractImageReconstructionParameters
     factor::Int64
     cache_misses::Ref{Int64}
   end
@@ -170,7 +170,28 @@
   end
 
   @testset "RecoPlan" begin
-    
+    cache_misses = Ref(0)
+    cached_parameter = CacheableParameter(3, cache_misses)
+    cache = ProcessResultCache(; param = cached_parameter, maxsize = 1)
+
+    plan = toPlan(cache)
+    setAll!(plan, :maxsize, 3)
+    @test plan.cache.maxsize == 3
+
+    clear!(plan.param)
+    io = IOBuffer()
+    toTOML(io, plan)
+    seekstart(io)
+    planCopy = loadPlan(io, [Main, AbstractImageReconstruction])
+
+    setAll!(planCopy, :factor, 3)
+    setAll!(planCopy, :cache_misses, Ref(0))
+    copy1 = build(planCopy)
+    copy2 = build(planCopy)
+    @test copy1.cache == copy2.cache
+    resize!(copy1, 42)
+
+    @test copy2.cache.maxsize == 42
   end
 
 end
