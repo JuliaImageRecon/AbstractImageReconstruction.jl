@@ -142,6 +142,9 @@ function Base.hash(parameter::T, h::UInt64) where T <: AbstractImageReconstructi
   end
   return h
 end
+function Base.hash(parameter::ProcessResultCache, h::UInt64)
+  return hash(typeof(parameter), hash(parameter.maxsize, hash(parameter.param, h)))
+end
 
 
 function showproperty(io::IO, name, property::RecoPlan{ProcessResultCache}, indent, islast, depth)
