@@ -35,7 +35,7 @@ AbstractImageReconstruction.savePlan
 AbstractImageReconstruction.loadPlan
 AbstractImageReconstruction.loadListener!
 AbstractImageReconstruction.parent(::RecoPlan)
-AbstractImageReconstruction.parent!(::RecoPlan, ::RecoPlan)
+AbstractImageReconstruction.parent!(::RecoPlan, ::AbstractRecoPlan)
 AbstractImageReconstruction.parentproperty
 AbstractImageReconstruction.parentproperties
 ```
