@@ -1,7 +1,7 @@
 name = "AbstractImageReconstruction"
 uuid = "a4b4fdbf-6459-4ec9-990d-77e1fa24a91b"
 authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
-version = "0.5.2"
+version = "0.5.3"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
