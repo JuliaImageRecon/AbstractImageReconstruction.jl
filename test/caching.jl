@@ -171,14 +171,24 @@
 
   @testset "RecoPlan" begin
     cache_misses = Ref(0)
-    cached_parameter = CacheableParameter(3, cache_misses)
+    cached_parameter = PureCacheableParameter(3, cache_misses)
     cache = ProcessResultCache(; param = cached_parameter, maxsize = 1)
 
     plan = toPlan(cache)
     setAll!(plan, :maxsize, 3)
     @test plan.cache.maxsize == 3
 
-    clear!(plan.param)
+    process(CacheableAlgorithm, cache, 42)
+    @test length(keys(cache.cache)) == 1
+    empty!(cache)
+    @test length(keys(cache.cache)) == 0
+    process(CacheableAlgorithm, cache, 42)
+    @test plan.cache == cache.cache
+    @test length(keys(cache.cache)) == 1
+    empty!(plan)
+    @test length(keys(cache.cache)) == 0
+
+    clear!(plan)
     io = IOBuffer()
     toTOML(io, plan)
     seekstart(io)

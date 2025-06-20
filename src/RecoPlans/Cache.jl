@@ -115,10 +115,11 @@ end
 
 """
     empty!(cache::ProcessResultCache)
+    empty!(plan::RecoPlan{ProcessResultCache})
 
 Empty the cache of the `ProcessResultCache`
 """
-Base.empty!(cache::ProcessResultCache) = empty!(cache.cache)
+Base.empty!(cache::Union{ProcessResultCache, RecoPlan{<:ProcessResultCache}}) = empty!(cache.cache)
 """
     resize!(cache::ProcessResultCache)
 
