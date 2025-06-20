@@ -69,3 +69,6 @@ reconstruct(algo, sinograms);
 # Caches support serialization like other `RecoPlans`:
 clear!(plan)
 toTOML(stdout, plan)
+
+# Caches can also be resized. You can either set the maxsize property of the RecoPlan or use `resize!` on the `ProcessResultCache`. Resizing a cache affects all algorithms build from the same plan.
+setAll!(plan, :maxsize, 0)
