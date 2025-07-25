@@ -115,6 +115,7 @@ function Base.setproperty!(plan::RecoPlan{T}, name::Symbol, x::X) where {T, X}
   return Base.getproperty(plan, name)
 end
 validvalue(plan, t, value::Missing) = true
+validvalue(plan, t::Type{T}, value::Missing) where T = true
 validvalue(plan, ::Type{T}, value::X) where {T, X <: T} = true
 validvalue(plan, ::Type{T}, value::AbstractRecoPlan{<:T}) where T = true
 # RecoPlans are stripped of parameters
