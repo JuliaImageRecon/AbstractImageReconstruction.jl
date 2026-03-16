@@ -45,28 +45,6 @@ function AbstractImageReconstruction.process(algoT::Type{<:AbstractDirectRadonAl
 end
 
 # Now we can define the algorithm type itself. Algorithms are usually constructed with one argument passing in the user parameters:
-mutable struct DirectRadonAlgorithm{D <: DirectRadonParameters} <: AbstractDirectRadonAlgorithm
-  parameter::D
-  output::Channel{Any}
-  DirectRadonAlgorithm(parameter::D) where D = new{D}(parameter, Channel{Any}(Inf))
+@reconstruction struct DirectRadonAlgorithm{D <: DirectRadonParameters} <: AbstractDirectRadonAlgorithm
+  @parameter parameter::D
 end
-# And they implement a method to retrieve the used parameters:
-AbstractImageReconstruction.parameter(algo::DirectRadonAlgorithm) = algo.parameter
-
-# Algorithms are assumed to be stateful. To ensure thread safety, we need to implement the `lock` and `unlock` functions. We will use the `output` channel as a lock:
-Base.lock(algo::DirectRadonAlgorithm) = lock(algo.output)
-Base.unlock(algo::DirectRadonAlgorithm) = unlock(algo.output)
-
-# And implement the `put!` and `take!` functions, mimicking the behavior of a FIFO channel for reconstructions:
-Base.take!(algo::DirectRadonAlgorithm) = Base.take!(algo.output)
-function Base.put!(algo::DirectRadonAlgorithm, data::AbstractArray{T, 4}) where {T} 
-  lock(algo) do
-    put!(algo.output, process(algo, algo.parameter, data))
-  end
-end
-
-# The way the behaviour is implemented here, the algorithm does not buffer any inputs and instead blocks until the currenct reconstruction is done. Outputs are stored until they are retrieved.
-
-# With `wait` and `isready` we can check if the algorithm is currently processing data or if it is ready to accept new inputs:
-Base.wait(algo::DirectRadonAlgorithm) = wait(algo.output)
-Base.isready(algo::DirectRadonAlgorithm) = isready(algo.output)
