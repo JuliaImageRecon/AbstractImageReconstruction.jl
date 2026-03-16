@@ -144,7 +144,8 @@ struct ReconstructionSpec
   abstract_base::Symbol
   parameter_type::Union{Symbol, Nothing}
   parameter_name::Union{Symbol, Nothing}
-  state_fields::Vector{Tuple{Symbol, Symbol, Any}}  # (name, type, default)
+  state_fields::Vector{Tuple{Symbol, Union{Symbol, Expr}, Any}}
+  init_hook::Union{Expr, Nothing}
 end
 
 function define_algorithm(spec::ReconstructionSpec)
@@ -178,9 +179,16 @@ function define_algorithm(spec::ReconstructionSpec)
       Channel{Any}(Inf))
   )
     
+  init_call = if spec.init_hook !== nothing
+    :($(spec.init_hook)(algo))
+  else
+    :()
+  end
+
   ctor = :(
     function $(spec.name)(parameter)
       $ctor_init
+      $init_call
       return algo
     end
   )
@@ -273,13 +281,52 @@ function _build_parameter_accessor(spec::ReconstructionSpec)
   )
 end
 
-function parse_algorithm_spec(head::Expr, body::Expr)
+function parse_field_def(item::Union{Symbol, Expr})
+    """Parse a single field definition, returning (name, type, default) or nothing"""
+    if item isa Symbol
+        # Bare field name: field
+        return (item, :Any, missing)
+    elseif Meta.isexpr(item, :(::))
+        # field::Type or nested field::Type = default
+        name = item.args[1]
+        typespec = item.args[2]
+        
+        if Meta.isexpr(typespec, :(=))
+            # Nested: field::(Type = default) [unlikely but handle it]
+            field_type = typespec.args[1]
+            field_default = typespec.args[2]
+        else
+            # field::Type
+            field_type = typespec
+            field_default = missing
+        end
+        return (name, field_type, field_default)
+    elseif Meta.isexpr(item, :(=))
+        # field = default or field::Type = default
+        lhs = item.args[1]
+        rhs = item.args[2]
+        
+        if Meta.isexpr(lhs, :(::))
+            # field::Type = default
+            name = lhs.args[1]
+            field_type = lhs.args[2]
+        else
+            # field = default (lhs is just the name)
+            name = lhs
+            field_type = :Any
+        end
+        return (name, field_type, rhs)
+    else
+        return nothing
+    end
+end
+
+function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr)
   # Check if there's an explicit base type
   if Meta.isexpr(head, :<:)
-    algo_head = head.args[1]  # AlgoName{D <: ...}
+    algo_head = head.args[1]
     abstract_base = head.args[2]
   else
-    # No base type specified, use default
     algo_head = head
     abstract_base = :(AbstractImageReconstructionAlgorithm)
   end
@@ -296,41 +343,41 @@ function parse_algorithm_spec(head::Expr, body::Expr)
   # Parse body
   parameter_type = nothing
   parameter_name = nothing
-  state_fields = Tuple{Symbol, Symbol, Any}[]
-  
+  state_fields = Tuple{Symbol, Union{Symbol, Expr}, Any}[]
+  init_hook = nothing
+
   for item in body.args
     if Meta.isexpr(item, :macrocall)
       macro_name = item.args[1]
-      
+
       if macro_name == Symbol("@parameter")
-        # @parameter parameter::D
         param_spec = item.args[3]
         parameter_name = Symbol(param_spec.args[1])
         parameter_type = param_spec.args[2]
+      elseif macro_name == Symbol("@init")
+        init_hook = item.args[3]
       else
         @warn "Unexpected macro call $macro_name"
       end
-    
-    elseif Meta.isexpr(item, :(::))
-      # Field with type: state::Type or state::Type = default
-      field_name = Symbol(item.args[1])
-      
-      if Meta.isexpr(item.args[2], :(=))
-        # state::Type = default
-        field_type = item.args[2].args[1]
-        field_default = item.args[2].args[2]
-      else
-        # state::Type
-        field_type = item.args[2]
-        field_default = nothing
+    elseif item isa Symbol || item isa Expr
+      # Try to parse as a field definition
+      result = parse_field_def(item)
+      if !isnothing(result)
+        field_name, field_type, field_default = result
+        push!(state_fields, (field_name, field_type, field_default))
       end
-      
-      push!(state_fields, (field_name, field_type, field_default))
     end
   end
-  
+
   if parameter_type === nothing || parameter_name === nothing
     error("@parameter required in @algorithm")
+  end
+
+  for field in state_fields
+    if field[3] === missing
+      error("Field '$(field[1])' has no default value. " *
+            "Provide a default and use @init for custom initialization.")
+    end
   end
   
   return ReconstructionSpec(
@@ -339,20 +386,57 @@ function parse_algorithm_spec(head::Expr, body::Expr)
     abstract_base,
     parameter_type,
     parameter_name,
-    state_fields)
+    state_fields, 
+    init_hook)
 end
 
 """
     @reconstruction struct AlgoName{P <: Params} <: AbstractBase
       @parameter parameter::P
       field::Type = default
-      # ...
-      @validate hook!(algo, inputs...)
-      @finalize hook!(algo, result)
+      field = default
+      @init hook!(algo)
     end
 
-Define a stateful algorithm with boilerplate automatically generated.
-Supports both `struct` and `mutable struct`.
+Define a stateful algorithm struct with boilerplate automatically generated.
+
+# Features
+- Automatically generates a mutable struct with infrastructure fields
+- Supports custom abstract base types (defaults to `AbstractImageReconstructionAlgorithm`)
+- Implements interface methods: `Base.put!`, `Base.take!`, `Base.isready`, `Base.wait`, `Base.lock`, `Base.unlock`
+- Requires a `@parameter` field; all other fields must have default values
+
+# Syntax
+
+## Required
+- `@parameter parameter::ParameterType` — Required parameter field
+
+## Optional State Fields
+- `field::Type = default` — Typed field with default value
+- `field = default` — Untyped field (type inferred from default) with default value
+
+## Optional Hooks
+- `@init hook!(algo)` — Custom initialization hook called after struct construction (receives the new algorithm instance)
+
+# Supported Type Syntax
+
+# Examples
+
+```julia
+@reconstruction mutable struct MyAlgorithm <: CustomBase
+  @parameter params::MyParams
+  state::Vector{Float64} = Float64[]
+  counter::Int = 0
+  cache::Dict{String, Any} = Dict()
+  @init initialize_algo!(algo)
+end
+
+function initialize_algo!(algo::MyAlgorithm)
+  ### Custom setup logic
+  algo.cache["initialized"] = true
+end
+```
+The macro supports both struct and mutable struct definitions.
 """
 macro reconstruction(expr)
   # Check if this is a struct definition
