@@ -46,15 +46,9 @@ end
 # Instead of defining essentially the same struct again, we could also define a more generic one and specify the supported reconstruction parameter as type constraints in the algorithm constructor.
 
 # Unlike the direct reconstruction algorithm, the iterative algorithm has to store the linear operator. We will store it as a field in the algorithm type:
-mutable struct IterativeRadonAlgorithm{D <: IterativeRadonParameters} <: AbstractIterativeRadonAlgorithm
-  parameter::D
-  op::Union{Nothing, AbstractLinearOperator}
-  output::Channel{Any}
-end
-
-# We will set the operator to `nothing` in the constructor:
-function IterativeRadonAlgorithm(parameter::D) where D
-  return IterativeRadonAlgorithm{D}(parameter, nothing, Channel{Any}(Inf))
+@reconstruction mutable struct IterativeRadonAlgorithm{D <: IterativeRadonParameters} <: AbstractIterativeRadonAlgorithm
+  @parameter parameter::D
+  op::Union{Nothing, AbstractLinearOperator} = nothing
 end
 
 # Next we implement the `process` method for our reconstruction parameters and an algorithm instance. This allows us to access the operator and pass it to the processing step:
@@ -72,16 +66,3 @@ end
 
 # Our algorithm is not type stable. To fix this, we would need to know the element type of the sinograms during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.
 # Often times the performance impact of this is negligible as the critical sections are in the preprocessing or the iterative solver, especially since we still dispatch on the operator.
-
-# To finish up the implementation we need to implement the remaining runtime related functions:
-Base.take!(algo::IterativeRadonAlgorithm) = Base.take!(algo.output)
-function Base.put!(algo::IterativeRadonAlgorithm, data::AbstractArray{T, 4}) where {T}
-  lock(algo.output) do
-    put!(algo.output, process(algo, algo.parameter, data))
-  end
-end
-Base.lock(algo::IterativeRadonAlgorithm) = lock(algo.output)
-Base.unlock(algo::IterativeRadonAlgorithm) = unlock(algo.output)
-Base.isready(algo::IterativeRadonAlgorithm) = isready(algo.output)
-Base.wait(algo::IterativeRadonAlgorithm) = wait(algo.output)
-AbstractImageReconstruction.parameter(algo::IterativeRadonAlgorithm) = algo.parameter

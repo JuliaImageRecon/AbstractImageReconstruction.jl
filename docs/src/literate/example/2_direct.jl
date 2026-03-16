@@ -44,7 +44,17 @@ function AbstractImageReconstruction.process(algoT::Type{<:AbstractDirectRadonAl
   return process(algoT, params.reco, data)
 end
 
-# Now we can define the algorithm type itself. Algorithms are usually constructed with one argument passing in the user parameters:
+# Now we can define the algorithm type itself using the `@reconstruction` macro. The macro automatically generates:
+
+# - A mutable struct with the parameter field and internal infrastructure
+# - A constructor accepting the parameter
+# - Interface methods: `Base.put!`, `Base.take!`, `Base.wait`, `Base.isready`, `Base.lock`, `Base.unlock`
+# - A parameter accessor method
+
+# It's also possible to implement these functions manually, see the corresponding docstrings for information
+
 @reconstruction struct DirectRadonAlgorithm{D <: DirectRadonParameters} <: AbstractDirectRadonAlgorithm
   @parameter parameter::D
 end
+
+# The way the behaviour is implemented here, the algorithm does not buffer any inputs and instead blocks until the current reconstruction is done. Outputs are stored until they are retrieved.

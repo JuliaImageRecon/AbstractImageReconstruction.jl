@@ -5,6 +5,7 @@ REPL one can access this documentation by entering the help mode with `?`
 ## Algorithm and Parameters
 ```@docs
 AbstractImageReconstruction.AbstractImageReconstructionAlgorithm
+AbstractImageReconstruction.@reconstruction
 AbstractImageReconstruction.reconstruct
 Base.put!(::AbstractImageReconstructionAlgorithm, ::Any)
 Base.take!(::AbstractImageReconstructionAlgorithm)
