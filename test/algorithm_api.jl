@@ -318,4 +318,162 @@ end
     @test sort(results) == 2.0 .* (1:10)
   end
 
+  @testset "Custom constructor with @reconstruction_internals" begin
+    @reconstruction constructor = false mutable struct CustomConstructorAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      computed_value::Float64
+      derived_state::Int
+    end
+
+    function CustomConstructorAlgo(parameter::TestParameters, extra::Int)
+      computed = parameter.value * 2
+      derived = parameter.iterations + extra
+      return CustomConstructorAlgo(parameter, computed, derived, @reconstruction_internals CustomConstructorAlgo)
+    end
+
+    params = TestParameters(value=5.0, iterations=100)
+    algo = CustomConstructorAlgo(params, 50)
+
+    @test algo.parameter === params
+    @test algo.computed_value == 10.0
+    @test algo.derived_state == 150
+    @test hasfield(typeof(algo), :_channel)
+  end
+
+  @testset "Custom constructor with complex type parameters" begin
+    @reconstruction constructor = false struct ComplexTypeAlgo{P,T} <: AbstractTestBase
+      @parameter parameter::P
+      data::T
+    end
+
+    function ComplexTypeAlgo(params::TestParameters, data::Vector{Float64})
+      return ComplexTypeAlgo{typeof(params),typeof(data)}(params, data, @reconstruction_internals ComplexTypeAlgo)
+    end
+
+    params = TestParameters(value=1.0)
+    data = [1.0, 2.0, 3.0]
+    algo = ComplexTypeAlgo(params, data)
+
+    @test algo.parameter === params
+    @test algo.data === data
+  end
+
+  @testset "@init hook with state initialization" begin
+    @reconstruction mutable struct InitHookAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      initialized::Bool = false
+      init_value::Float64 = 0.0
+
+      @init function setup_algo(algo::InitHookAlgo)
+        algo.initialized = true
+        algo.init_value = algo.parameter.value * 10
+      end
+    end
+
+    params = TestParameters(value=3.0)
+    algo = InitHookAlgo(params)
+
+    @test algo.initialized == true
+    @test algo.init_value == 30.0
+  end
+
+  @testset "@init hook receives correct algorithm state" begin
+    @reconstruction mutable struct InitStateCheckAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      state::Dict{String,Any} = Dict()
+
+      @init function populate_state(algo::InitStateCheckAlgo)
+        algo.state["param_value"] = algo.parameter.value
+        algo.state["param_iterations"] = algo.parameter.iterations
+      end
+    end
+
+    params = TestParameters(value=42.0, iterations=200)
+    algo = InitStateCheckAlgo(params)
+
+    @test algo.state["param_value"] == 42.0
+    @test algo.state["param_iterations"] == 200
+  end
+
+  @testset "Constructor generation can be disabled" begin
+    @reconstruction constructor = false struct NoAutoConstructorAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+    end
+
+    @test_throws MethodError NoAutoConstructorAlgo(TestParameters())
+
+    function NoAutoConstructorAlgo(parameter::TestParameters)
+      return NoAutoConstructorAlgo(parameter, @reconstruction_internals NoAutoConstructorAlgo)
+    end
+
+    params = TestParameters()
+    algo = NoAutoConstructorAlgo(params)
+    @test algo.parameter === params
+  end
+
+  @testset "Custom constructor with manual initialization" begin
+    @reconstruction constructor = false mutable struct CustomInitAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      setup_complete::Bool = false
+    end
+
+    function CustomInitAlgo(params::TestParameters)
+      algo = CustomInitAlgo(params, false, @reconstruction_internals CustomInitAlgo)
+      algo.setup_complete = true
+      return algo
+    end
+
+    params = TestParameters()
+    algo = CustomInitAlgo(params)
+
+    @test algo.setup_complete == true
+    @test algo.parameter === params
+  end
+
+  @testset "Custom constructor with process interface" begin
+    @reconstruction constructor = false struct CustomProcAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      multiplier::Float64
+    end
+
+    function CustomProcAlgo(params::TestParameters)
+      return CustomProcAlgo(params, params.value * 2.0, @reconstruction_internals CustomProcAlgo)
+    end
+
+    function process(algo::CustomProcAlgo, params::TestParameters, input)
+      return input * algo.multiplier
+    end
+
+    params = TestParameters(value=3.0)
+    algo = CustomProcAlgo(params)
+
+    put!(algo, 5.0)
+    result = take!(algo)
+
+    @test algo.multiplier == 6.0
+    @test result == 30.0
+  end
+
+  @testset "@init with multiple state fields" begin
+    @reconstruction mutable struct MultiStateInitAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      cache::Dict{String,Any} = Dict()
+      history::Vector{Float64} = Float64[]
+      counter::Int = 0
+
+      @init function init_multi_state(algo::MultiStateInitAlgo)
+        algo.cache["threshold"] = algo.parameter.value
+        algo.history = [algo.parameter.value]
+        algo.counter = algo.parameter.iterations
+      end
+    end
+
+    params = TestParameters(value=7.5, iterations=42)
+    algo = MultiStateInitAlgo(params)
+
+    @test algo.cache["threshold"] == 7.5
+    @test algo.history == [7.5]
+    @test algo.counter == 42
+  end
+
 end
