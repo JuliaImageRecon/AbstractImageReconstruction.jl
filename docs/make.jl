@@ -1,4 +1,5 @@
 using Documenter, Literate, AbstractImageReconstruction, Observables
+using Pkg.Artifacts
 
 # Generate examples
 OUTPUT_BASE = joinpath(@__DIR__(), "src/generated")
@@ -37,6 +38,7 @@ makedocs(
         ],
         "How to" => Any[
             "Serialization" => "generated/howto/serialization.md",
+            "Custom Constructors" => "generated/howto/constructors.md",
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",
             "Multi-Threading" => "generated/howto/multi_threading.md",

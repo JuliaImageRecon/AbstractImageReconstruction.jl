@@ -39,7 +39,7 @@ plot_image(fig[1,2], sinogram, title = "Sinogram")
 resize_to_layout!(fig)
 fig
 
-# ## 3D Pnantom
+# ## 3D Phantom
 # RadonKA.jl also supports 3D Radon transforms. The first two dimensions are interpreted as the XY plane where the transform applied and the last dimensions is the rotational axis z of the projections.
 # For that we need to create a 3D Shepp-Logan phantom. First we retrieve the parameters of the ellipsoids of the Shepp-Logan phantom:
 shape = (64, 64, 64)

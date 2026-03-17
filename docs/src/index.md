@@ -8,7 +8,8 @@ AbstractImageReconstruction.jl is a Julia package that serves as the core API fo
 
 ## Features
  
-* Reconstruction control flow defined with multiple-dispatch on extensible and exchangable type hierarchies 
+* Reconstruction control flow defined with multiple-dispatch on extensible and exchangable type hierarchies
+* Seperation of data processing and reconstruction runtime 
 * Storing, loading and manipulating of reconstruction algorithms with (partially) set parameters
 * Attaching callbacks to parameter changes with Observables.jl
 * Various generic utilities such as transparent caching of intermediate reconstruction results
