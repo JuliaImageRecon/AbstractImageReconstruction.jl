@@ -25,14 +25,14 @@ mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{
   end
 end
 ProcessResultCache(param::AbstractImageReconstructionParameters; kwargs...) = ProcessResultCache(;param, kwargs...)
-process(algo::A, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algo, param, inputs...)
-process(algoT::Type{<:A}, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algoT, param, inputs...)
+(param::ProcessResultCache)(algo::A, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_param(algo, param, inputs...)
+(param::ProcessResultCache)(algoT::Type{<:A}, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_param(algoT, param, inputs...)
 parameter(param::ProcessResultCache) = param.param
 
-function hashed_process(algo, param::ProcessResultCache, inputs...)
+function hashed_param(algo, param::ProcessResultCache, inputs...)
   id = hash(param.param, hash(inputs, hash(algo)))
   result = get!(param.cache, id) do 
-    process(algo, param.param, inputs...)
+    param.param(algo, inputs...)
   end
   return result
 end

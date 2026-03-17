@@ -20,7 +20,7 @@ Base.@kwdef struct CostlyPreprocessingParameters <: AbstractRadonPreprocessingPa
   frames::Vector{Int64} = []
   runtime::Float64 = 1.0
 end
-function AbstractImageReconstruction.process(::Type{<:AbstractRadonAlgorithm}, params::CostlyPreprocessingParameters, data::AbstractArray{T, 4}) where {T}
+function (params::CostlyPreprocessingParameters)(::Type{<:AbstractRadonAlgorithm}, data::AbstractArray{T, 4}) where {T}
   frames = isempty(params.frames) ? (1:size(data, 4)) : params.frames
   data = data[:, :, :, frames]
   @info "Very costly preprocessing step"
@@ -34,9 +34,9 @@ Base.@kwdef struct RadonCachedPreprocessingParameters{P <: AbstractRadonPreproce
 end
 # Note that this case is a bit artifical and a more sensible place would be the algorithm parameters themselves. However, for the case of simplicity we did not introduce the concept in the example.
 # In this artifical case we just pass the parameters to the processing step. A real implementation might do some more processing with the result of the inner processing step:
-AbstractImageReconstruction.process(algoT::Type{<:AbstractRadonAlgorithm}, params::RadonCachedPreprocessingParameters, args...) = process(algoT, params.params, args...)
+(params::RadonCachedPreprocessingParameters)(algoT::Type{<:AbstractRadonAlgorithm}, args...) = params.params(algoT, args...)
 
-# We deliberaly implement the `process` function for algorithm type to avoid our cache being invalided by state changes of an algoritm instance.
+# We deliberaly implement the callable method for the algorithm type to avoid our cache being invalided by state changes of an algorithm instance.
 
 # Now we construct a plan for a direct reconstruction algorithm that uses the costly preprocessing step:
 pre = CostlyPreprocessingParameters(; frames = collect(1:3), runtime = 1.0)

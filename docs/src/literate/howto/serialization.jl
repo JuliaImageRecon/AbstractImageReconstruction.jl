@@ -37,7 +37,7 @@ Base.@kwdef struct CustomGeomFilteredBackprojectionParameters{G <: RadonGeometry
   filter::Union{Nothing, Vector{Float64}} = nothing
   geometry::G
 end
-function AbstractImageReconstruction.process(::Type{<:AbstractDirectRadonAlgorithm}, params::CustomGeomFilteredBackprojectionParameters, data::AbstractArray{T, 3}) where {T}
+function (params::CustomGeomFilteredBackprojectionParameters)(::Type{<:AbstractDirectRadonAlgorithm}, data::AbstractArray{T, 3}) where {T}
   return RadonKA.backproject_filtered(data, params.angles; filter = params.filter, geometry = params.geometry)
 end
 

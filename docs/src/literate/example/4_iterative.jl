@@ -23,7 +23,7 @@ end
 # The parameters of this struct can be grouped into three catergories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.
 
 # Since we want to construct the linear operator only once, we will write the `process` method with the operator as a given argument:
-function AbstractImageReconstruction.process(::Type{<:AbstractIterativeRadonAlgorithm}, params::IterativeRadonReconstructionParameters, op, data::AbstractArray{T, 4}) where {T}
+function (params::IterativeRadonReconstructionParameters)(::Type{<:AbstractIterativeRadonAlgorithm}, op, data::AbstractArray{T, 4}) where {T}
   solver = createLinearSolver(params.solver, op; iterations = params.iterations, reg = params.reg)
 
   result = similar(data, params.shape..., size(data, 4))
@@ -52,16 +52,16 @@ end
 end
 
 # Next we implement the `process` method for our reconstruction parameters and an algorithm instance. This allows us to access the operator and pass it to the processing step:
-function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::IterativeRadonParameters{P, R}, data::AbstractArray{T, 4}) where {T, P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters}
-  data = process(algo, params.pre, data)
-  return process(algo, params.reco, algo.op, data)
+function (params::IterativeRadonParameters{P, R})(algo::IterativeRadonAlgorithm, data::AbstractArray{T, 4}) where {T, P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters}
+  data = params.pre(algo, data)
+  return params.reco(algo, algo.op, data)
 end
 
 # Note that initially the operator is `nothing` and the processing step would fail as it stands. To "fix" this we define a `process` method for the algorithm instance which creates the operator and stores it in the algorithm:
-function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::AbstractIterativeRadonReconstructionParameters, ::Nothing, data::AbstractArray{T, 4}) where {T}
+function (params::AbstractIterativeRadonReconstructionParameters)(algo::IterativeRadonAlgorithm, ::Nothing, data::AbstractArray{T, 4}) where {T}
   op = RadonOp(T; shape = params.shape, angles = params.angles)
   algo.op = op
-  return process(AbstractIterativeRadonAlgorithm, params, op, data)
+  return params(AbstractIterativeRadonAlgorithm, op, data)
 end
 
 # Our algorithm is not type stable. To fix this, we would need to know the element type of the sinograms during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.

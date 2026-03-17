@@ -10,7 +10,20 @@ export AbstractImageReconstructionParameters
 """
     AbstractImageReconstructionParameters
 
-Abstract type for image reconstruction parameters.  An algorithm consists of one ore more `process` steps, each can have its own parameters. Parameters can be arbitrarly nested. 
+Abstract type for image reconstruction parameters.  An algorithm consists of one ore more `process` steps, each can have its own parameters. Parameters can be arbitrarly nested.
+Parameters are callable and can be invoked directly on algorithm instances:
+
+    result = param(algo, inputs...)
+
+or a type-based implementation:
+
+    result = param(typeof(algo), inputs...)
+
+# Interface
+
+Implement one of:
+- `(param::MyParameters)(::Type{<:MyAlgorithm}, inputs...)` for type-based processing
+- `(param::MyParameters)(algo::MyAlgorithm, inputs...)` for instance-based processing (defaults to type-based)
 """
 abstract type AbstractImageReconstructionParameters end
 
@@ -95,25 +108,41 @@ export process
     process(algo::Union{A, Type{A}}, param::AbstractImageReconstructionParameters, inputs...) where A <: AbstractImageReconstructionAlgorithm
 
 Process `inputs` with algorithm `algo` and parameters `param`. Returns the result of the processing step.
-If not implemented for an instance of `algo`, the default implementation is called with the type of `algo`.
+If not implemented for an instance of `algo`, the default implementation is called with the type of `algo`. This interface is deprecated
 """
 function process end
-process(algo::AbstractImageReconstructionAlgorithm, param::AbstractImageReconstructionParameters, inputs...) = process(typeof(algo), param, inputs...)
+"""
+    param(algo::AbstractImageReconstructionAlgorithm, inputs...)
+
+Call parameters on an algorithm instance to process inputs.
+
+This is the primary interface for executing reconstruction steps. Parameters are callable and dispatch to their type-based implementation:
+
+    param(algo, inputs...) → param(typeof(algo), inputs...)
+
+# Examples
+
+```julia
+param = MyReconstructionParameters(...)
+algo = MyAlgorithm(param)
+result = param(algo, data)  # ✓ Primary interface
+```
+"""
+(param::AbstractImageReconstructionParameters)(algo::AbstractImageReconstructionAlgorithm, inputs...) = param(typeof(algo), inputs...)
 """
     process(algo::Union{A, Type{A}}, param::AbstractUtilityReconstructionParameters{P}, inputs...) where {A <: AbstractImageReconstructionAlgorithm, P <: AbstractImageReconstructionParameters}
 
 Process `inputs` with algorithm `algo` and return the result as if the arguments were given to `P`. Examples of utility `process` are processes which offer caching or remote execution. 
 """
 process(::A, param::AbstractUtilityReconstructionParameters{P}, inputs...) where {A, P} = error("$(typeof(param)) must implement `process` for $A and given inputs")
-"""
-Enable multiple process steps by supplying a Vector of parameters
-"""
-function process(algo::AbstractImageReconstructionAlgorithm, params::Vector{<:AbstractImageReconstructionParameters}, inputs...)
-  val = process(algo, first(params), inputs...)
-  for param ∈ Iterators.drop(params, 1)
-    val = process(algo, val, param)
-  end
-  return val
+function process(algo::AbstractImageReconstructionAlgorithm, 
+                 param::AbstractImageReconstructionParameters, 
+                 inputs...)
+  Base.depwarn(
+    "process(algo, param, inputs...) is deprecated. Use param(algo, inputs...) instead.",
+    :process
+  )
+  return param(algo, inputs...)
 end
 
 export parameter
@@ -148,8 +177,7 @@ struct ReconstructionSpec
   init_hook::Union{Expr, Nothing}
 end
 
-function define_algorithm(spec::ReconstructionSpec)
-  # Build struct fields: parameter + state + infrastructure
+function define_algorithm(spec::ReconstructionSpec, generate_constructor::Bool=true)
   struct_fields = [
     :($(spec.parameter_name)::$(spec.parameter_type)),
     [:($(field[1])::$(field[2])) for field in spec.state_fields]...,
@@ -169,31 +197,33 @@ function define_algorithm(spec::ReconstructionSpec)
     end
   )
   
-  # Build constructor
-  field_defaults = [field[3] for field in spec.state_fields]
-  
-  ctor_init = :(
-    algo = $(spec.name)(
-      parameter,
-      $(field_defaults...),
-      Channel{Any}(Inf))
-  )
+  ctor = if generate_constructor
+    field_defaults = [field[3] for field in spec.state_fields]
     
-  init_call = if spec.init_hook !== nothing
-    :($(spec.init_hook)(algo))
+    ctor_init = :(
+      algo = $(spec.name)(
+        parameter,
+        $(field_defaults...),
+        Channel{Any}(Inf))
+    )
+    
+    init_call = if spec.init_hook !== nothing
+      :($(spec.init_hook)(algo))
+    else
+      :()
+    end
+
+    :(
+      function $(spec.name)(parameter)
+        $ctor_init
+        $init_call
+        return algo
+      end
+    )
   else
     :()
   end
-
-  ctor = :(
-    function $(spec.name)(parameter)
-      $ctor_init
-      $init_call
-      return algo
-    end
-  )
   
-  # Build interface methods
   interface_methods = [
     _build_put_method(spec),
     _build_take_method(spec),
@@ -204,7 +234,6 @@ function define_algorithm(spec::ReconstructionSpec)
     _build_parameter_accessor(spec),
   ]
   
-  # Combine all definitions
   return quote
     $struct_def
     $ctor
@@ -321,7 +350,7 @@ function parse_field_def(item::Union{Symbol, Expr})
     end
 end
 
-function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr)
+function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr, generate_constructor::Bool)
   # Check if there's an explicit base type
   if Meta.isexpr(head, :<:)
     algo_head = head.args[1]
@@ -374,9 +403,9 @@ function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr)
   end
 
   for field in state_fields
-    if field[3] === missing
+    if field[3] === missing && generate_constructor
       error("Field '$(field[1])' has no default value. " *
-            "Provide a default and use @init for custom initialization.")
+            "Provide a default and use @init for custom initialization or provide a custom constructor.")
     end
   end
   
@@ -438,19 +467,51 @@ end
 ```
 The macro supports both struct and mutable struct definitions.
 """
-macro reconstruction(expr)
-  # Check if this is a struct definition
-  if !Meta.isexpr(expr, :struct)
-    error("@reconstruction must be applied to a struct definition (struct or mutable struct)")
+macro reconstruction(ex...)
+  if isempty(ex)
+    error("@reconstruction requires a struct definition")
   end
   
-  is_mutable = expr.args[1]  # true for mutable struct, false for struct
-  algo_head = expr.args[2]    # AlgoName{P <: Params} <: AbstractBase
-  body_block = expr.args[3]   # The struct body as Expr(:block, ...)
+  generate_constructor = true
+  struct_expr = ex[end]
   
-  # Parse the spec using the existing parser
-  spec = parse_algorithm_spec(algo_head, body_block)
+  for i in 1:(length(ex) - 1)
+    if ex[i] isa Expr && ex[i].head == :(=)
+      key = ex[i].args[1]
+      val = ex[i].args[2]
+      
+      if key == :constructor && val isa Bool
+        generate_constructor = val
+      else
+        error(
+          "Configuration should be of form:\n" *
+          "* `constructor=true`\n" *
+          "* `constructor=false`\n" *
+          "got `", ex[i], "`",
+        )
+      end
+    else
+      error(
+        "Configuration should be of form: `key=value`\n" *
+        "got `", ex[i], "`",
+      )
+    end
+  end
+  
+  if !Meta.isexpr(struct_expr, :struct)
+    error("@reconstruction must be applied to a struct definition")
+  end
+  
+  algo_head = struct_expr.args[2]
+  body_block = struct_expr.args[3]
+  
+  spec = parse_algorithm_spec(algo_head, body_block, generate_constructor)
+  
+  return esc(define_algorithm(spec, generate_constructor))
+end
 
-  # Generate and return the algorithm definition
-  return esc(define_algorithm(spec))
+
+export @reconstruction_internals
+macro reconstruction_internals(type_name)
+  return :((Channel{Any}(Inf),)...)
 end

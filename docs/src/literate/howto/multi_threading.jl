@@ -43,7 +43,7 @@ Base.@kwdef struct ThreadedIterativeReconstructionParameters{S <: AbstractLinear
   angles::Vector{Float64}
 end
 # Our parameters are identical to the iterative reconstruction parameters from the iterative example. We only differ in the type of the parameters. This allows us to dispatch on the type of the parameters and implement a different `process` method for the threaded version:
-function AbstractImageReconstruction.process(::Type{<:AbstractIterativeRadonAlgorithm}, params::ThreadedIterativeReconstructionParameters, op, data::AbstractArray{T, 4}) where {T}
+function (params::ThreadedIterativeReconstructionParameters)(::Type{<:AbstractIterativeRadonAlgorithm}, op, data::AbstractArray{T, 4}) where {T}
 
   result = similar(data, params.shape..., size(data, 4))
 

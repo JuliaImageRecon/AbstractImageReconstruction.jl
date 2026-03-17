@@ -43,7 +43,7 @@ Base.@kwdef struct RadonPreprocessingParameters <: AbstractRadonPreprocessingPar
   frames::Vector{Int64} = []
   numAverages::Int64 = 1
 end
-function AbstractImageReconstruction.process(::Type{<:AbstractRadonAlgorithm}, params::RadonPreprocessingParameters, data::AbstractArray{T, 4}) where {T}
+function (params::RadonPreprocessingParameters)(::Type{<:AbstractRadonAlgorithm}, data::AbstractArray{T, 4}) where {T}
   frames = isempty(params.frames) ? (1:size(data, 4)) : params.frames
   data = data[:, :, :, frames]
   
