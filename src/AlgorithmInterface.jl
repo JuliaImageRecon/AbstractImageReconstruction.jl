@@ -420,7 +420,7 @@ function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr, generate_co
 end
 
 """
-    @reconstruction struct AlgoName{P <: Params} <: AbstractBase
+    @reconstruction [constructor={true, false}] struct AlgoName{P <: Params} <: AbstractBase
       @parameter parameter::P
       field::Type = default
       field = default
@@ -433,7 +433,14 @@ Define a stateful algorithm struct with boilerplate automatically generated.
 - Automatically generates a mutable struct with infrastructure fields
 - Supports custom abstract base types (defaults to `AbstractImageReconstructionAlgorithm`)
 - Implements interface methods: `Base.put!`, `Base.take!`, `Base.isready`, `Base.wait`, `Base.lock`, `Base.unlock`
-- Requires a `@parameter` field; all other fields must have default values
+- Optionally generates a simple constructor or allows custom constructor implementation
+- Requires a `@parameter` field
+
+# Configuration Options
+
+- `constructor={true, false}` (default: `true`) — Whether to auto-generate a simple constructor that accepts only the parameter.
+
+  Set to `false` to write a custom constructor (use `@reconstruction_internals` helper).
 
 # Syntax
 
@@ -445,7 +452,9 @@ Define a stateful algorithm struct with boilerplate automatically generated.
 - `field = default` — Untyped field (type inferred from default) with default value
 
 ## Optional Hooks
-- `@init hook!(algo)` — Custom initialization hook called after struct construction (receives the new algorithm instance)
+## Optional Hooks
+- `@init hook!(algo)` — Custom initialization hook called after struct construction (receives the new algorithm instance).
+  Only available with default constructor generation.
 
 # Supported Type Syntax
 
