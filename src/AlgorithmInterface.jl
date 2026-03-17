@@ -249,7 +249,7 @@ function _build_put_method(spec::ReconstructionSpec)
   put_body = quote
     lock(algo) do
       # Execute the algorithm
-      result = process(algo, algo.$param_name, inputs...)      
+      result = algo.$param_name(algo, inputs...)      
       put!(algo._channel, result)
     end
   end
