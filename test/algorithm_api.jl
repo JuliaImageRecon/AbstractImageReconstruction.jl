@@ -50,6 +50,18 @@ end
     @test algo.parameter === params
   end
 
+  @testset "Nested Parametric algorithm definition" begin
+    abstract type ParametricBase{P} <: AbstractTestBase end
+    @reconstruction struct ParametricAlgo{P} <: ParametricBase{P}
+      @parameter parameter::P
+    end
+    @test @isdefined ParametricBase
+
+    params = TestParameters(value=2.0)
+    algo = ParametricAlgo(params)
+    @test algo.parameter === params
+  end
+
   @testset "No supertype" begin
     @reconstruction mutable struct NoBaseAlgorithm
       @parameter parameter::TestParameters

@@ -170,7 +170,7 @@ Internal specification for algorithm definition. Can be created manually or via 
 struct ReconstructionSpec
   name::Symbol
   type_params::Vector
-  abstract_base::Symbol
+  abstract_base::Union{Symbol, Expr}
   parameter_type::Union{Symbol, Nothing}
   parameter_name::Union{Symbol, Nothing}
   state_fields::Vector{Tuple{Symbol, Union{Symbol, Expr}, Any}}
