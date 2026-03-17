@@ -6,11 +6,19 @@
 
 AbstractImageReconstruction.jl is a Julia package that serves as the core API for medical imaging packages. It provides implementations an interface and type hierarchy to represent and implement image reconstruction algorithms, their parameters and runtime behaviour. In particular, this package serves as the API of the Julia packages [MPIReco.jl](https://github.com/MagneticParticleImaging/MPIReco.jl).
 
+The main design idea is:
+
+* Algorithms (`AbstractImageReconstructionAlgorithm`) represent the runnable reconstruction engine, including runtime state and scheduling.
+* Parameters (`AbstractImageReconstructionParameters`) represent configurable processing steps. Parameters are callable objects that define how data is processed by an algorithm.
+* Plans (`RecoPlan`) are mutable, serializable blueprints for algorithms and parameters that can be partially specified, inspected, modified, and built into concrete algorithms.
+
+Algorithms can be extended either by defining new parameter types (new processing steps) for existing algorithms, or by introducing new algorithm structs when different state or runtime behaviour is required.
+
 ## Features
  
-* Reconstruction control flow defined with multiple-dispatch on extensible and exchangable type hierarchies
-* Seperation of data processing and reconstruction runtime 
-* Storing, loading and manipulating of reconstruction algorithms with (partially) set parameters
+* Reconstruction control flow defined with multiple dispatch on extensible and exchangeable type hierarchies
+* Separation of data processing (callable parameter objects) and reconstruction runtime (algorithms, scheduling, locking, channels)
+* Storing, loading, and manipulating of reconstruction algorithms with (partially) specified parameters via RecoPlan
 * Attaching callbacks to parameter changes with Observables.jl
 * Various generic utilities such as transparent caching of intermediate reconstruction results
 
