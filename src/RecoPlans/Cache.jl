@@ -2,8 +2,19 @@ export ProcessResultCache
 """
     ProcessResultCache(params::AbstractImageReconstructionParameters; maxsize = 1, kwargs...)
 
-Cache of size `maxsize` for the result of `process` methods. The cache is based on the `hash` of the inputs of the `process` function. Cache is shared between all algorithms constructed from the same plan.
-The cache is transparent for properties of the underlying parameter. Cache can be invalidated by calling `empty!` on the cache.
+Cache of size `maxsize` for the results of type-based parameter calls:
+
+    (params::P)(::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)
+
+The cache key is based on the `hash` of the algorithm `type`, the wrapped parameter, and
+the inputs.
+
+The same `ProcessResultCache` instance can be shared between algorithms constructed from the
+same plan. The cache is transparent with respect to the properties of the underlying
+parameter. Cached entries can be invalidated by calling `empty!(params)`
+
+To be cacheable, the wrapped parameter must implement a type-based call
+`(param::P)(::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)`.
 """
 mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
@@ -25,14 +36,12 @@ mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{
   end
 end
 ProcessResultCache(param::AbstractImageReconstructionParameters; kwargs...) = ProcessResultCache(;param, kwargs...)
-(param::ProcessResultCache)(algo::A, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_param(algo, param, inputs...)
-(param::ProcessResultCache)(algoT::Type{<:A}, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_param(algoT, param, inputs...)
 parameter(param::ProcessResultCache) = param.param
 
-function hashed_param(algo, param::ProcessResultCache, inputs...)
-  id = hash(param.param, hash(inputs, hash(algo)))
+function (param::ProcessResultCache)(algoT::Type{A}, inputs...) where {A <: AbstractImageReconstructionAlgorithm}
+  id = hash(param.param, hash(inputs, hash(algoT)))
   result = get!(param.cache, id) do 
-    param.param(algo, inputs...)
+    param.param(algoT, inputs...)
   end
   return result
 end
