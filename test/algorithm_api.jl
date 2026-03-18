@@ -519,6 +519,16 @@ end
     @test p.value == 42
   end
 
+  @testset "Empty parameter" begin
+    @parameter struct EmptyParams
+      # NOP
+    end
+
+    @test @isdefined EmptyParams
+    p = EmptyParams()
+    @test p isa EmptyParams
+  end
+
   @testset "Parameter definition without explicit base" begin
     @parameter struct NoBaseParams
       x::Int

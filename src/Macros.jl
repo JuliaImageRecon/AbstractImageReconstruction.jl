@@ -448,6 +448,12 @@ end
 
 function _build_kwarg_constructor(spec::Union{ParameterSpec, ChainSpec})  
   kwargs = [kw(field) for field in spec.fields]
+
+  # Empty fields result in stackoverflow
+  if isempty(kwargs)
+    return :()
+  end
+
   kw_constructor = :(
     function $(spec.name)(;$(kwargs...))
       _param = $(spec.name)($((f.name for f in spec.fields)...))
