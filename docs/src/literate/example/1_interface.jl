@@ -46,11 +46,16 @@ abstract type AbstractIterativeRadonAlgorithm <: AbstractRadonAlgorithm end
 
 # Let's define a preprocessing step that we can share between our algorithms. We want to
 # allow the user to select certain frames from a time series and average them. We will use
-# the `@kwdef` macro to provide a constructor with keyword arguments and default values.
+# the `@parameter` macro. This is similar to `Base.@kwdef` and allows us to provide a constructor with keyword arguments and default values.
+# It also allows us to validate the values of our parameters:
 using Statistics
-Base.@kwdef struct RadonPreprocessingParameters <: AbstractRadonPreprocessingParameters
+@parameter struct RadonPreprocessingParameters <: AbstractRadonPreprocessingParameters
   frames::Vector{Int64} = []
   numAverages::Int64 = 1
+
+  @validate begin
+    @assert numAverages >= 0 "Averages must be a positive integer"
+  end
 end
 function (params::RadonPreprocessingParameters)(::Type{<:AbstractRadonAlgorithm}, data::AbstractArray{T, 4}) where {T}
   frames = isempty(params.frames) ? (1:size(data, 4)) : params.frames

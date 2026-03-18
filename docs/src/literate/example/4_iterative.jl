@@ -13,7 +13,7 @@ export AbstractIterativeRadonReconstructionParameters, IterativeRadonReconstruct
 # We will start by defining the parameters for the algorithm and the processing steps. Afterwards we can implement the algorithm itself. Since we will use the same preprocessing as for the direct reconstruction, we can reuse the parameters and processing steps and jump directly to the iterative parameters:
 using RegularizedLeastSquares, LinearOperatorCollection
 abstract type AbstractIterativeRadonReconstructionParameters <: AbstractRadonReconstructionParameters end
-Base.@kwdef struct IterativeRadonReconstructionParameters{S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+@parameter struct IterativeRadonReconstructionParameters{S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
   solver::Type{S}
   iterations::Int64 
   reg::Vector{R}
@@ -39,7 +39,7 @@ end
 
 # ## Algorithm
 # Similar to the direct reconstruction algorithm, we want our iterative algorithm to accept both preprocessing and reconstruction parameters. We will encode this in a new type:
-Base.@kwdef struct IterativeRadonParameters{P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters} <: AbstractRadonParameters 
+@parameter struct IterativeRadonParameters{P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters} <: AbstractRadonParameters 
   pre::P
   reco::R
 end

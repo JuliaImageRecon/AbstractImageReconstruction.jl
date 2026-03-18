@@ -10,7 +10,7 @@
 
 # This is useful when you need to initialize fields based on parameter values but don't need custom type resolution.
 
-Base.@kwdef struct SimpleProcessingParameters <: AbstractImageReconstructionParameters
+@parameter struct SimpleProcessingParameters <: AbstractImageReconstructionParameters
   threshold::Float64 = 0.5
   cache_size::Int = 100
 end
@@ -39,7 +39,7 @@ length(algo.cache) == 50
 
 # The `@init` hook can also be used to perform validation or logging:
 
-Base.@kwdef struct ValidationParameters <: AbstractImageReconstructionParameters
+@parameter struct ValidationParameters <: AbstractImageReconstructionParameters
   min_value::Float64 = 0.0
   max_value::Float64 = 1.0
 end
@@ -75,7 +75,7 @@ algo_invalid = ValidatingAlgorithm(params_invalid)
 
 # This is common when generic types need to be resolved based on the parameters.
 
-Base.@kwdef struct MatrixProcessingParameters <: AbstractImageReconstructionParameters
+@parameter struct MatrixProcessingParameters <: AbstractImageReconstructionParameters
   rows::Int = 10
   cols::Int = 10
   use_float32::Bool = false

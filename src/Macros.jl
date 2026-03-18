@@ -46,6 +46,10 @@ function expr(spec::FieldSpec)
   end
 end
 
+function kw(spec::FieldSpec)
+  return spec.default === notspecified ? spec.name : Expr(:kw, spec.name, spec.default)
+end
+
 # Macro constructor
 export @reconstruction
 """
@@ -366,4 +370,136 @@ end
 export @reconstruction_internals
 macro reconstruction_internals(type_name)
   return :((Channel{Any}(Inf),)...)
+end
+
+
+
+export @parameter
+
+struct ParameterSpec
+  name::Symbol
+  type_params::Vector
+  abstract_base::Union{Symbol, Expr}
+  ismutable::Bool
+  fields::Vector{FieldSpec}
+  validate_body::Union{Expr, Nothing}
+end
+
+function parse_parameter_spec(head::Union{Symbol, Expr},
+                              body::Expr,
+                              ismutable::Bool)
+  # Head: Name{...} or Name{...} <: Base
+  if Meta.isexpr(head, :<:)
+    type_head    = head.args[1]
+    abstract_base = head.args[2]
+  else
+    type_head    = head
+    abstract_base = :(AbstractImageReconstructionParameters)
+  end
+
+  # Name + type params
+  if Meta.isexpr(type_head, :curly)
+    name        = Symbol(type_head.args[1])
+    type_params = type_head.args[2:end]
+  else
+    name        = Symbol(type_head)
+    type_params = Any[]
+  end
+
+  # Split body into fields + optional @validate
+  fields   = FieldSpec[]
+  validate_body = nothing
+
+  for item in body.args
+    item isa LineNumberNode && continue
+    if Meta.isexpr(item, :macrocall) 
+      macro_name = item.args[1]
+      if macro_name == Symbol("@validate")
+        validate_body = item.args[3]
+      else
+        @warn "Unexpected macro call $macro_name"
+      end
+    elseif item isa Symbol || item isa Expr
+      result = FieldSpec(item)
+      if !isnothing(result)
+        push!(fields, result)
+      end
+    end
+  end
+
+  return ParameterSpec(
+    name,
+    type_params,
+    abstract_base,
+    ismutable,
+    fields,
+    validate_body,
+  )
+end
+
+function define_parameter(spec::ParameterSpec)
+  # Build full type expr: Name or Name{T...}
+  full_type_expr = isempty(spec.type_params) ?
+                   :($(spec.name)) :
+                   :($(spec.name){$(spec.type_params...)})
+
+  # Struct head: Name{...} <: AbstractImageReconstructionParameters (or custom base)
+  struct_head = :( $full_type_expr <: $(spec.abstract_base) )
+
+  # Struct definition
+  struct_def = if spec.ismutable 
+    :(
+      mutable struct $struct_head
+        $(expr.(spec.fields)...)
+      end
+    )
+  else
+    :(
+      struct $struct_head
+        $(expr.(spec.fields)...)
+      end
+    )
+  end
+
+  validation_method = :()
+  if !isnothing(spec.validate_body)
+    validate_block = spec.validate_body
+    # Pre-bind fields: field = params.field
+    prelude = [:( $(fields.name) = params.$(fields.name) ) for fields in spec.fields]
+
+    validation_method = :(
+      function AbstractImageReconstruction.validate!(params::$(full_type_expr))
+        $(prelude...)
+        $(validate_block.args...)
+        return params
+      end
+    )
+  end
+
+  kwargs = [kw(field) for field in spec.fields]
+  kw_constructor = :(
+    function $(spec.name)(;$(kwargs...))
+      _param = $(spec.name)($((f.name for f in spec.fields)...))
+      validate!(_param)
+      return _param
+    end
+  )
+
+  return quote
+    $struct_def
+    $kw_constructor
+    $validation_method
+  end
+end
+
+macro parameter(struct_expr)
+  if !Meta.isexpr(struct_expr, :struct)
+    error("@parameter must be applied to a struct definition")
+  end
+  ismutable  = struct_expr.args[1]
+  head_expr  = struct_expr.args[2]
+  body_block = struct_expr.args[3]
+
+  spec = parse_parameter_spec(head_expr, body_block, ismutable)
+  return esc(define_parameter(spec))
 end

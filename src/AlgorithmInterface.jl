@@ -159,4 +159,35 @@ Return the wrapped parameter. Can themselves be utility parameters again
 """
 parameter(param::AbstractUtilityReconstructionParameters) = error("$(typeof(param)) must implement `parameter`")
 
+export validate!
+"""
+    validate!(param::AbstractImageReconstructionParameters)
+
+Validate a parameter object independent of any specific algorithm.
+
+This is the default, algorithm-agnostic validation method. Concrete parameter types
+can specialize this method to enforce internal invariants, e.g.:
+
+```julia
+function validate!(p::MyParams)
+    @assert p.iterations > 0 "iterations must be positive"
+    @assert length(p.reg) > 0 "regularization vector must not be empty"
+    return p
+end
+```
+By default, this method is a no-op and simply returns `param`
+"""
+@inline function validate!(param::AbstractImageReconstructionParameters)
+  return param
+end
+"""
+    validate!(algo, param::AbstractImageReconstructionParameters)
+
+Validate a parameter object in the context of a specific reconstruction algorithm `algo`.
+"""
+@inline function validate!(algo::Union{A, Type{A}}, param::AbstractImageReconstructionParameters) where A <: AbstractImageReconstructionAlgorithm
+  return param
+end
+
+
 include("Macros.jl")

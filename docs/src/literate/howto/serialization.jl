@@ -32,7 +32,7 @@ toDict(plan)
 
 # As an example we will add a new parameter struct for a filtered backprojection process using a given geometry:
 export CustomGeomFilteredBackprojectionParameters
-Base.@kwdef struct CustomGeomFilteredBackprojectionParameters{G <: RadonGeometry} <: OurRadonReco.AbstractDirectRadonReconstructionParameters
+@parameter struct CustomGeomFilteredBackprojectionParameters{G <: RadonGeometry} <: OurRadonReco.AbstractDirectRadonReconstructionParameters
   angles::Vector{Float64}
   filter::Union{Nothing, Vector{Float64}} = nothing
   geometry::G

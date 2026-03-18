@@ -16,7 +16,7 @@ include("../../literate/example/example_include_all.jl") #hide
 # The cache itself is connected to a `RecoPlan` and any instances build from the same plan instance share this cache and can reuse the result of the processing step.
 
 # Let's implement the `ProcessResultCache` type for the Radon preprocessing step. We first define a struct a very costly preprocessing step:
-Base.@kwdef struct CostlyPreprocessingParameters <: AbstractRadonPreprocessingParameters
+@parameter struct CostlyPreprocessingParameters <: AbstractRadonPreprocessingParameters
   frames::Vector{Int64} = []
   runtime::Float64 = 1.0
 end
@@ -29,7 +29,7 @@ function (params::CostlyPreprocessingParameters)(::Type{<:AbstractRadonAlgorithm
 end
 
 # Now we can define a processing step that internally uses another processing step. We allow this inner parameter to be cached by considering the following `Union`:
-Base.@kwdef struct RadonCachedPreprocessingParameters{P <: AbstractRadonPreprocessingParameters, PU <: AbstractUtilityReconstructionParameters{P}} <: AbstractRadonPreprocessingParameters
+@parameter struct RadonCachedPreprocessingParameters{P <: AbstractRadonPreprocessingParameters, PU <: AbstractUtilityReconstructionParameters{P}} <: AbstractRadonPreprocessingParameters
   params::Union{P, PU}
 end
 # Note that this case is a bit artifical and a more sensible place would be the algorithm parameters themselves. However, for the case of simplicity we did not introduce the concept in the example.

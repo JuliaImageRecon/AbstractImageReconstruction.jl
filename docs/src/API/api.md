@@ -7,14 +7,21 @@ REPL one can access this documentation by entering the help mode with `?`
 AbstractImageReconstruction.AbstractImageReconstructionAlgorithm
 AbstractImageReconstruction.@reconstruction
 AbstractImageReconstruction.reconstruct
+AbstractImageReconstruction.AbstractImageReconstructionParameters
+AbstractImageReconstruction.@parameter
+AbstractImageReconstruction.validate!
+```
+
+The above functions are all that is required to implement when using the provided macros.
+For custom structs without the macros, it's also necessary to implement the following functions:
+
+```@docs
 Base.put!(::AbstractImageReconstructionAlgorithm, ::Any)
 Base.take!(::AbstractImageReconstructionAlgorithm)
 Base.lock(::AbstractImageReconstructionAlgorithm)
 Base.unlock(::AbstractImageReconstructionAlgorithm)
 Base.isready(::AbstractImageReconstructionAlgorithm)
 Base.wait(::AbstractImageReconstructionAlgorithm)
-AbstractImageReconstruction.AbstractImageReconstructionParameters
-AbstractImageReconstruction.process
 AbstractImageReconstruction.parameter
 ```
 

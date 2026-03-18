@@ -129,7 +129,7 @@ end
     end
     
     # Define a simple process method
-    function process(algo::InterfaceAlgo, params::TestParameters, input)
+    function (params::TestParameters)(algo::InterfaceAlgo, input)
       return input * params.value
     end
     
@@ -149,7 +149,7 @@ end
       @parameter parameter::TestParameters
     end
     
-    function process(algo::SyncAlgo, params::TestParameters, input)
+    function (params::TestParameters)(algo::SyncAlgo, input)
       return input + params.value
     end
     
@@ -207,7 +207,7 @@ end
       @parameter parameter::TestParameters
     end
     
-    function process(algo::FIFOAlgo, params::TestParameters, input)
+    function (params::TestParameters)(algo::FIFOAlgo, input)
       return input
     end
     
@@ -250,7 +250,7 @@ end
       @parameter parameter::TestParameters
     end
     
-    function process(algo::MultiInputAlgo, params::TestParameters, x, y, z)
+    function (params::TestParameters)(algo::MultiInputAlgo, x, y, z)
       return x + y + z + params.value
     end
     
@@ -297,7 +297,7 @@ end
       @parameter parameter::TestParameters
     end
     
-    function process(algo::ReconstructAlgo, params::TestParameters, inputs...)
+    function (params::TestParameters)(algo::ReconstructAlgo, inputs...)
       return inputs[1] + params.value
     end
     
@@ -313,7 +313,7 @@ end
       @parameter parameter::TestParameters
     end
     
-    function process(algo::ThreadAlgo, params::TestParameters, inputs...)
+    function (params::TestParameters)(algo::ThreadAlgo, inputs...)
       return inputs[1] * params.value
     end
     
@@ -452,7 +452,7 @@ end
       return CustomProcAlgo(params, params.value * 2.0, @reconstruction_internals CustomProcAlgo)
     end
 
-    function process(algo::CustomProcAlgo, params::TestParameters, input)
+    function (params::TestParameters)(algo::CustomProcAlgo, input)
       return input * algo.multiplier
     end
 
@@ -488,4 +488,77 @@ end
     @test algo.counter == 42
   end
 
+end
+
+
+@testset "@parameter" begin
+  @testset "Basic parameter definition with explicit base" begin
+    @parameter struct SimpleParams <: AbstractTestParameters
+      value::Float64
+      iterations::Int64 = 10
+    end
+
+    @test @isdefined SimpleParams
+
+    p = SimpleParams(value = 1.5)
+    @test p.value == 1.5
+    @test p.iterations == 10
+    @test p isa AbstractTestParameters
+  end
+
+  @testset "Parameter definition without explicit base" begin
+    @parameter struct NoBaseParams
+      x::Int
+    end
+
+    @test @isdefined NoBaseParams
+
+    p2 = NoBaseParams(x = 3)
+    @test p2.x == 3
+    @test p2 isa AbstractImageReconstructionParameters
+  end
+
+  @testset "Parametric parameter type" begin
+    @parameter struct ParametricParams{T} <: AbstractTestParameters
+      x::T
+      y::Int = 1
+    end
+
+    @test @isdefined ParametricParams
+
+    p3 = ParametricParams(x = 2.5)
+    @test p3.x == 2.5
+    @test p3.y == 1
+    @test p3 isa ParametricParams{Float64}
+  end
+
+  # Parametric base type
+  @testset "Parametric base type" begin
+    abstract type AbstractParametricBaseParams{T} <: AbstractTestParameters end
+    @parameter struct ParametricBaseParams{T} <: AbstractParametricBaseParams{T}
+      value::T
+    end
+
+    @test @isdefined ParametricBaseParams
+
+    param = ParametricBaseParams(value = 42)
+    @test param.value == 2.5
+  end
+
+  @testset "@validate" begin
+    @parameter struct ValidatedParams <: AbstractTestParameters
+      a::Int
+      b::Int
+      @validate begin
+        @assert a < b "a must be less than b"
+      end
+    end
+
+    good = ValidatedParams(a = 1, b = 2)
+    @test_nowarn validate!(good)
+    @test good.a == 1
+    @test good.b == 2
+
+    @test_throws AssertionError ValidatedParams(a = 3, b = 2)
+  end
 end
