@@ -9,12 +9,12 @@ export AbstractDirectRadonReconstructionParameters, RadonFilteredBackprojectionP
 # For convenience we first introduce a new abstract type for the direct reconstruction paramters:
 abstract type AbstractDirectRadonReconstructionParameters <: AbstractRadonReconstructionParameters end
 # The backprojection parameters are simple and only contain the number of angles:
-Base.@kwdef struct RadonBackprojectionParameters <: AbstractDirectRadonReconstructionParameters
+@parameter struct RadonBackprojectionParameters <: AbstractDirectRadonReconstructionParameters
   angles::Vector{Float64}
 end
 
 # The filtered backprojection parameters are more complex and contain the number of angles and optionally the filter which should be used:
-Base.@kwdef struct RadonFilteredBackprojectionParameters <: AbstractDirectRadonReconstructionParameters
+@parameter struct RadonFilteredBackprojectionParameters <: AbstractDirectRadonReconstructionParameters
   angles::Vector{Float64}
   filter::Union{Nothing, Vector{Float64}} = nothing
 end
@@ -34,15 +34,11 @@ end
 # ## Algorithm
 # The direct reconstruction algorithm has essentially no state to store between reconstructions and thus only needs its parameters as fields. We want our algorithm to accept any combination of our preprocessing and direct reconstruction parameters.
 # This we encode in a new type:
-Base.@kwdef struct DirectRadonParameters{P <: AbstractRadonPreprocessingParameters, R <: AbstractDirectRadonReconstructionParameters} <: AbstractRadonParameters
+@chain struct DirectRadonParameters{P <: AbstractRadonPreprocessingParameters, R <: AbstractDirectRadonReconstructionParameters} <: AbstractRadonParameters
   pre::P
   reco::R
 end
-# And the according processing step:
-function (params::DirectRadonParameters{P, R})(algoT::Type{<:AbstractDirectRadonAlgorithm}, data::AbstractArray{T, 4}) where {T, P<:AbstractRadonPreprocessingParameters, R<:AbstractDirectRadonReconstructionParameters}
-  data = params.pre(algoT, data)
-  return params.reco(algoT, data)
-end
+# This composite type simply chains the result of our preprocessing step into our reco step. See the API for @chain for more information.
 
 # Now we can define the algorithm type itself using the `@reconstruction` macro. The macro automatically generates:
 

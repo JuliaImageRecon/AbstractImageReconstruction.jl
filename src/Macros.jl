@@ -385,6 +385,78 @@ struct ParameterSpec
   validate_body::Union{Expr, Nothing}
 end
 
+struct ChainSpec
+  name::Symbol
+  type_params::Vector{Any}
+  abstract_base::Union{Symbol, Expr}
+  ismutable::Bool
+  fields::Vector{FieldSpec}
+  validate_body::Union{Expr, Nothing}
+end
+
+function _build_struct_definition(spec::Union{ParameterSpec, ChainSpec})
+    # Build full type expr: Name or Name{T...}
+  full_type_expr = isempty(spec.type_params) ?
+                   :($(spec.name)) :
+                   :($(spec.name){$(spec.type_params...)})
+
+  # Struct head: Name{...} <: AbstractImageReconstructionParameters (or custom base)
+  struct_head = :( $full_type_expr <: $(spec.abstract_base) )
+
+  # Struct definition
+  struct_def = if spec.ismutable 
+    :(
+      mutable struct $struct_head
+        $(expr.(spec.fields)...)
+      end
+    )
+  else
+    :(
+      struct $struct_head
+        $(expr.(spec.fields)...)
+      end
+    )
+  end
+
+  return struct_def
+end
+
+function _build_validation_method(spec::Union{ParameterSpec, ChainSpec})
+  # Build full type expr: Name or Name{T...}
+  full_type_expr = isempty(spec.type_params) ?
+                   :($(spec.name)) :
+                   :($(spec.name){$(spec.type_params...)})
+
+  
+  validation_method = :()
+  if !isnothing(spec.validate_body)
+    validate_block = spec.validate_body
+    # Pre-bind fields: field = params.field
+    prelude = [:( $(fields.name) = params.$(fields.name) ) for fields in spec.fields]
+
+    validation_method = :(
+      function AbstractImageReconstruction.validate!(params::$(full_type_expr))
+        $(prelude...)
+        $(validate_block.args...)
+        return params
+      end
+    )
+  end
+  return validation_method
+end
+
+function _build_kwarg_constructor(spec::Union{ParameterSpec, ChainSpec})  
+  kwargs = [kw(field) for field in spec.fields]
+  kw_constructor = :(
+    function $(spec.name)(;$(kwargs...))
+      _param = $(spec.name)($((f.name for f in spec.fields)...))
+      validate!(_param)
+      return _param
+    end
+  )  
+  return kw_constructor
+end
+
 function parse_parameter_spec(head::Union{Symbol, Expr},
                               body::Expr,
                               ismutable::Bool)
@@ -438,53 +510,12 @@ function parse_parameter_spec(head::Union{Symbol, Expr},
 end
 
 function define_parameter(spec::ParameterSpec)
-  # Build full type expr: Name or Name{T...}
-  full_type_expr = isempty(spec.type_params) ?
-                   :($(spec.name)) :
-                   :($(spec.name){$(spec.type_params...)})
+  struct_def = _build_struct_definition(spec)
 
-  # Struct head: Name{...} <: AbstractImageReconstructionParameters (or custom base)
-  struct_head = :( $full_type_expr <: $(spec.abstract_base) )
+  validation_method = _build_validation_method(spec)
 
-  # Struct definition
-  struct_def = if spec.ismutable 
-    :(
-      mutable struct $struct_head
-        $(expr.(spec.fields)...)
-      end
-    )
-  else
-    :(
-      struct $struct_head
-        $(expr.(spec.fields)...)
-      end
-    )
-  end
-
-  validation_method = :()
-  if !isnothing(spec.validate_body)
-    validate_block = spec.validate_body
-    # Pre-bind fields: field = params.field
-    prelude = [:( $(fields.name) = params.$(fields.name) ) for fields in spec.fields]
-
-    validation_method = :(
-      function AbstractImageReconstruction.validate!(params::$(full_type_expr))
-        $(prelude...)
-        $(validate_block.args...)
-        return params
-      end
-    )
-  end
-
-  kwargs = [kw(field) for field in spec.fields]
-  kw_constructor = :(
-    function $(spec.name)(;$(kwargs...))
-      _param = $(spec.name)($((f.name for f in spec.fields)...))
-      validate!(_param)
-      return _param
-    end
-  )
-
+  kw_constructor = _build_kwarg_constructor(spec)
+  
   return quote
     $struct_def
     $kw_constructor
@@ -502,4 +533,137 @@ macro parameter(struct_expr)
 
   spec = parse_parameter_spec(head_expr, body_block, ismutable)
   return esc(define_parameter(spec))
+end
+
+function parse_chain_spec(head::Union{Symbol, Expr},
+                          body::Expr,
+                          ismutable::Bool)
+  # Head: Name{...} or Name{...} <: Base
+  if Meta.isexpr(head, :<:)
+    type_head    = head.args[1]
+    abstract_base = head.args[2]
+  else
+    type_head    = head
+    abstract_base = :(AbstractImageReconstructionParameters)
+  end
+
+  # Name + type params
+  if Meta.isexpr(type_head, :curly)
+    name        = Symbol(type_head.args[1])
+    type_params = type_head.args[2:end]
+  else
+    name        = Symbol(type_head)
+    type_params = Any[]
+  end
+
+  fields   = FieldSpec[]
+  validate_body = nothing
+
+  for item in body.args
+    item isa LineNumberNode && continue
+    if Meta.isexpr(item, :macrocall) 
+      macro_name = item.args[1]
+      if macro_name == Symbol("@validate")
+        validate_body = item.args[3]
+      else
+        @warn "Unexpected macro call $macro_name"
+      end
+    elseif item isa Symbol || item isa Expr
+      result = FieldSpec(item)
+      if !isnothing(result)
+        push!(fields, result)
+      end
+    end
+  end
+
+  return ChainSpec(
+    name,
+    type_params,
+    abstract_base,
+    ismutable,
+    fields,
+    validate_body
+  )
+end
+
+function define_chain(spec::ChainSpec)
+  struct_def = _build_struct_definition(spec)
+
+  validation_method = _build_validation_method(spec)
+
+  kw_constructor = _build_kwarg_constructor(spec)
+
+  chain_method = :(
+    function (param::$(spec.name))(algo::AbstractImageReconstructionAlgorithm, inputs...)
+      result = param.$(first(spec.fields).name)(algo, inputs...)
+      $((:(result = param.$(field.name)(algo, result)) for field in spec.fields[2:end])...)
+      return result
+    end
+  )
+
+  chain_method_pure = :(
+    function (param::$(spec.name))(algo::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)
+      result = param.$(first(spec.fields).name)(algo, inputs...)
+      $((:(result = param.$(field.name)(algo, result)) for field in spec.fields[2:end])...)
+      return result
+    end
+  )
+
+  
+  return quote
+    $struct_def
+    $kw_constructor
+    $validation_method
+    $chain_method
+    $chain_method_pure
+  end
+
+end
+
+export @chain
+"""
+    @chain struct Name{...} <: AbstractImageReconstructionParameters
+        step1::P1 [= default1]
+        step2::P2 [= default2]
+        ...
+    end
+
+Define a composite parameter type whose call chains its fields as processing steps.
+
+`@chain` expands the given struct definition into:
+
+  * A plain `struct` (or `mutable struct`) with the same fields.
+  * A keyword constructor
+
+        Name(; step1, step2, ...)
+
+    where fields with `= default` become optional keywords, and fields without
+    defaults are required.
+  * An optional validation step, similar to @parameter
+  * Two call method
+
+        (params::Name)(algo::AbstractImageReconstructionAlgorithm, inputs...)
+        (params::Name)(algo::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)
+
+    that execute:
+
+        result = params.step1(algo, inputs...)
+        result = params.step2(algo, result...)
+        ...
+        return result
+
+Each field is assumed to be a parameter-like object that is callable with
+`(algo, ...)`. The composite type is a subtype of `AbstractImageReconstructionParameters` by default; a different
+abstract base can be specified explicitly
+"""
+macro chain(struct_expr)
+  if !Meta.isexpr(struct_expr, :struct)
+    error("@chain must be applied to a struct definition")
+  end
+  ismutable  = struct_expr.args[1]
+  head_expr  = struct_expr.args[2]
+  body_block = struct_expr.args[3]
+
+  spec = parse_chain_spec(head_expr, body_block, ismutable)
+  return esc(define_chain(spec))
 end

@@ -13,7 +13,8 @@ export AbstractIterativeRadonReconstructionParameters, IterativeRadonReconstruct
 # We will start by defining the parameters for the algorithm and the processing steps. Afterwards we can implement the algorithm itself. Since we will use the same preprocessing as for the direct reconstruction, we can reuse the parameters and processing steps and jump directly to the iterative parameters:
 using RegularizedLeastSquares, LinearOperatorCollection
 abstract type AbstractIterativeRadonReconstructionParameters <: AbstractRadonReconstructionParameters end
-@parameter struct IterativeRadonReconstructionParameters{S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+@parameter struct IterativeRadonReconstructionParameters{T, S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+  eltype::Type{T}
   solver::Type{S}
   iterations::Int64 
   reg::Vector{R}
@@ -23,7 +24,7 @@ end
 # The parameters of this struct can be grouped into three catergories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.
 
 # Since we want to construct the linear operator only once, we will write the `process` method with the operator as a given argument:
-function (params::IterativeRadonReconstructionParameters)(::Type{<:AbstractIterativeRadonAlgorithm}, op, data::AbstractArray{T, 4}) where {T}
+function (params::IterativeRadonReconstructionParameters{T})(::Type{<:AbstractIterativeRadonAlgorithm}, op, data::AbstractArray{T, 4}) where {T}
   solver = createLinearSolver(params.solver, op; iterations = params.iterations, reg = params.reg)
 
   result = similar(data, params.shape..., size(data, 4))
@@ -45,23 +46,22 @@ end
 end
 # Instead of defining essentially the same struct again, we could also define a more generic one and specify the supported reconstruction parameter as type constraints in the algorithm constructor.
 
-# Unlike the direct reconstruction algorithm, the iterative algorithm has to store the linear operator. We will store it as a field in the algorithm type:
+# Unlike the direct reconstruction algorithm, the iterative algorithm has to store the linear operator. We will store it as a field in the algorithm type in an initialization step:
 @reconstruction mutable struct IterativeRadonAlgorithm{D <: IterativeRadonParameters} <: AbstractIterativeRadonAlgorithm
   @parameter parameter::D
   op::Union{Nothing, AbstractLinearOperator} = nothing
-end
 
-# Next we implement the `process` method for our reconstruction parameters and an algorithm instance. This allows us to access the operator and pass it to the processing step:
+  @init function createOperator(algo)
+    params = algo.parameter.reco
+    algo.op = RadonOp(params.eltype; shape = params.shape, angles = params.angles)
+  end
+end
+# If our algorithms require more complex initial state or parametric types, we can also create custom constructors. See the API for more information.
+
+# Next we implement the our manual chain method for our reconstruction parameters and an algorithm instance. This allows us to access the operator and pass it to the reconstruction step:
 function (params::IterativeRadonParameters{P, R})(algo::IterativeRadonAlgorithm, data::AbstractArray{T, 4}) where {T, P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters}
   data = params.pre(algo, data)
   return params.reco(algo, algo.op, data)
-end
-
-# Note that initially the operator is `nothing` and the processing step would fail as it stands. To "fix" this we define a `process` method for the algorithm instance which creates the operator and stores it in the algorithm:
-function (params::AbstractIterativeRadonReconstructionParameters)(algo::IterativeRadonAlgorithm, ::Nothing, data::AbstractArray{T, 4}) where {T}
-  op = RadonOp(T; shape = params.shape, angles = params.angles)
-  algo.op = op
-  return params(AbstractIterativeRadonAlgorithm, op, data)
 end
 
 # Our algorithm is not type stable. To fix this, we would need to know the element type of the sinograms during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.

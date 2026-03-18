@@ -542,7 +542,7 @@ end
     @test @isdefined ParametricBaseParams
 
     param = ParametricBaseParams(value = 42)
-    @test param.value == 2.5
+    @test param.value == 42
   end
 
   @testset "@validate" begin
@@ -560,5 +560,103 @@ end
     @test good.b == 2
 
     @test_throws AssertionError ValidatedParams(a = 3, b = 2)
+  end
+end
+
+
+
+@testset "@chain" begin
+  # Helper parameter types for chaining
+  @parameter struct AddParams <: AbstractTestParameters
+    offset::Float64
+  end
+
+  function (p::AddParams)(::Type{<:AbstractImageReconstructionAlgorithm}, x::Float64)
+    return x + p.offset
+  end
+
+  @parameter struct MulParams <: AbstractTestParameters
+    factor::Float64
+  end
+
+  function (p::MulParams)(::Type{<:AbstractImageReconstructionAlgorithm}, x::Float64)
+    return x * p.factor
+  end
+
+  # Dummy algorithm type for type-based calls
+  struct DummyAlgo <: AbstractTestBase end
+
+  @testset "Basic chain definition" begin
+    @chain struct AddThenMul <: AbstractTestParameters
+      add::AddParams
+      mul::MulParams
+    end
+
+    @test @isdefined AddThenMul
+
+    # Check struct properties
+    @test hasfield(AddThenMul, :add)
+    @test hasfield(AddThenMul, :mul)
+    @test AddThenMul(;
+      add = AddParams(offset = 1.0),
+      mul = MulParams(factor = 2.0),
+    ) isa AddThenMul
+
+    chain = AddThenMul(
+      add = AddParams(offset = 2.0),
+      mul = MulParams(factor = 3.0),
+    )
+
+    # Type-based call
+    result_type_based = chain(DummyAlgo, 4.0)
+    @test result_type_based == (4.0 + 2.0) * 3.0
+
+    # Instance-based call via default bridge (param(algo, ...) → param(typeof(algo), ...))
+    algo_instance = DummyAlgo()
+    result_instance = chain(algo_instance, 4.0)
+    @test result_instance == result_type_based
+  end
+
+  @testset "Parametric chain with custom base" begin
+    @chain struct GenericChain{P} <: AbstractTestParameters
+      step::P
+    end
+
+    @test @isdefined GenericChain
+
+    step_param = AddParams(offset = 5.0)
+    chain = GenericChain(step = step_param)
+
+    # Type-based call
+    @test chain(DummyAlgo, 1.0) == 6.0
+
+    # Ensure subtype relationship holds
+    @test chain isa AbstractTestParameters
+    @test chain isa AbstractImageReconstructionParameters
+  end
+
+  @testset "Chain with multiple steps" begin
+    @parameter struct PowParams <: AbstractTestParameters
+      power::Int
+    end
+
+    function (p::PowParams)(::Type{<:AbstractImageReconstructionAlgorithm}, x::Float64)
+      return x^p.power
+    end
+
+    @chain struct ComplexChain <: AbstractTestParameters
+      add::AddParams
+      mul::MulParams
+      pow::PowParams
+    end
+
+    chain = ComplexChain(
+      add = AddParams(offset = 1.0),
+      mul = MulParams(factor = 2.0),
+      pow = PowParams(power = 2),
+    )
+
+    # ((x + 1) * 2)^2
+    @test chain(DummyAlgo, 3.0) == ((3.0 + 1.0) * 2.0)^2
   end
 end

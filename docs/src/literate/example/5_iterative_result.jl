@@ -4,7 +4,7 @@ include("../../literate/example/example_include_all.jl") #hide
 # We can now use the iterative algorithms to reconstruct the first three images of our time series.
 # We first prepare our parameters. For this example we will use the Conjugate Gradient Normal Residual solver with 20 iterations and a L2 regularization of 0.001. Furthermore, we will project the final result to positive values:
 pre = RadonPreprocessingParameters(frames = collect(1:3))
-iter_reco = IterativeRadonReconstructionParameters(; shape = size(images)[1:3], angles = angles, iterations = 20, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR);
+iter_reco = IterativeRadonReconstructionParameters(; eltype = eltype(sinograms), shape = size(images)[1:3], angles = angles, iterations = 20, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR);
 
 # Again we can construct the algorithm with our parameters:
 algo_iter = IterativeRadonAlgorithm(IterativeRadonParameters(pre, iter_reco));
