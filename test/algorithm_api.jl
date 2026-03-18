@@ -506,6 +506,19 @@ end
     @test p isa AbstractTestParameters
   end
 
+  @testset "Documented parameter" begin
+    """
+        This is a test string
+    """
+    @parameter struct DocParams
+      value::Int64 = 42
+    end
+
+    @test @isdefined SimpleParams
+    p = DocParams(;value = 42)
+    @test p.value == 42
+  end
+
   @testset "Parameter definition without explicit base" begin
     @parameter struct NoBaseParams
       x::Int

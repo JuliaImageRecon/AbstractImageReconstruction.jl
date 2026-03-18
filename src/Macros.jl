@@ -418,7 +418,8 @@ function _build_struct_definition(spec::Union{ParameterSpec, ChainSpec})
     )
   end
 
-  return struct_def
+  # Make docstrings work (magically?), based on Base.@kwdef
+  return :($Base.@__doc__ $struct_def)
 end
 
 function _build_validation_method(spec::Union{ParameterSpec, ChainSpec})
