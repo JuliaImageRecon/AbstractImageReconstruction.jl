@@ -1,13 +1,15 @@
 name = "AbstractImageReconstruction"
 uuid = "a4b4fdbf-6459-4ec9-990d-77e1fa24a91b"
+version = "0.6.0"
 authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
-version = "0.5.5"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
 Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
+ScopedValues = "7e506255-f358-4e82-b7e4-beb19740aa63"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
+StructUtils = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
 
@@ -15,7 +17,9 @@ ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
 AbstractTrees = "0.4"
 LRUCache = "1.6"
 Observables = "0.5.5"
+ScopedValues = "1"
 Scratch = "1.2"
+StructUtils = "2.6"
 TOML = "1"
 ThreadPools = "2.1"
 julia = "1.9"
