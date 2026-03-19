@@ -1,3 +1,4 @@
+export MODULE_TAG, TYPE_TAG
 const MODULE_TAG = "_module"
 const TYPE_TAG = "_type"
 const VALUE_TAG = "_value"
@@ -35,18 +36,20 @@ function getindex(modDict::ModuleDict, mod::String, type::String)
   return nothing
 end
 
+export MODULE_DICT
 const MODULE_DICT = ScopedValue{Union{Nothing, ModuleDict}}(nothing)
 getindex(modDict::ScopedValue{Union{Nothing, ModuleDict}}, mod::String, type::String) = modDict[][mod, type]
 getindex(modDict::ScopedValue{Union{Nothing, ModuleDict}}, mod, type) = modDict[string(mod), string(type)] 
 
-
+export RecoPlanStyle
+export CustomPlanStyle
 struct RecoPlanStyle <: StructUtils.StructStyle end
 const PLAN_STYLE = ScopedValue{StructUtils.StructStyle}(RecoPlanStyle())
 const FIELD_STYLE = ScopedValue{StructUtils.StructStyle}(RecoPlanStyle())
 StructUtils.dictlike(::Type{RecoPlan}) = true
 
 abstract type CustomPlanStyle <: StructUtils.StructStyle end
-StructUtils.lower(::CustomPlanStyle, x) = lower(RecoPlanStyle(), x)
+StructUtils.lower(::CustomPlanStyle, x) = StructUtils.lower(RecoPlanStyle(), x)
 
 export savePlan
 """
@@ -134,13 +137,14 @@ function loadPlan(filename::String, modules; kwargs...)
     return loadPlan(io, modules)
   end
 end
-function loadPlan(filename::IO, modules::Vector{Module}, plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
+function loadPlan(filename::IO, modules::Vector{Module}; plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
   dict = TOML.parse(filename)
-  with(MODULE_DICT => ModuleDict(modules), 
-        PLAN_STYLE = plan_style,
-        FIELD_STYLE = field_style) do
-    plan = StructUtils.make(plan_style, RecoPlan, dict)
-    loadListeners!(plan, dict)
+  plan = with(MODULE_DICT => ModuleDict(modules), 
+        PLAN_STYLE => plan_style,
+        FIELD_STYLE => field_style) do
+    plan, _ = StructUtils.make(plan_style, RecoPlan, dict)
+    #loadListeners!(plan, dict)
+    return plan
   end
   return plan
 end
@@ -152,7 +156,7 @@ function StructUtils.make(style::RecoPlanStyle, ::Type{RecoPlan}, dict::Dict{Str
     mod = dict[MODULE_TAG]
     plan = RecoPlan(MODULE_DICT[mod, type])
     StructUtils.make!(style, plan, dict)
-    return plan
+    return plan, dict
   else
     # Has to be parameter or algo or broken toml
     # TODO implement
@@ -178,7 +182,13 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
         param = map(x-> StructUtils.make(style, RecoPlan, x), dict[key])
         foreach(p -> parent!(p, plan), param)
       else
-        param = StructUtils.lift(FIELD_STYLE[], t, dict[key])
+        lifted = StructUtils.lift(FIELD_STYLE[], t, dict[key])
+        if !(lifted isa Tuple)
+          @warn "Type $t with style $(FIELD_STYLE[]) did not return a tuple. This is likely caused by an inccorrect lift method. Returned value will be used as is"
+          param = lifted
+        else
+          param = first(lifted)
+        end          
       end
     end
 
@@ -187,18 +197,18 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
   return plan
 end
 
-StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where T = convert(T, source)
-StructUtils.lift(::RecoPlanStyle, ::Type{Symbol}, source::String) = Symbol(x)
+StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where T = convert(T, source), source
+StructUtils.lift(::RecoPlanStyle, ::Type{Symbol}, source::String) = Symbol(x), source
 #StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where {T<:Enum} = string(x)
-StructUtils.lift(style::RecoPlanStyle, ::Type{AbstractArray{T}}, source) where T = map(v -> StructUtils.lift(style, T, v), source)
+StructUtils.lift(style::RecoPlanStyle, ::Type{AbstractArray{T}}, source) where T = map(v -> StructUtils.lift(style, T, v), source), source
 function StructUtils.lift(::RecoPlanStyle, T::Type{<:Type}, source::Dict)
-  return MODULE_DICT[source[MODULE_TAG], source[VALUE_TAG]]
+  return MODULE_DICT[source[MODULE_TAG], source[VALUE_TAG]], source
 end
 function StructUtils.lift(::RecoPlanStyle, ::Type{Nothing}, source::Dict) 
   if isempty(x)
-    return nothing
+    return nothing, source
   end
   error("Unexpected value $x for Nothing, expected empty Dict")
 end
-StructUtils.lift(style::RecoPlanStyle, ::Type{NTuple{N, T} where N}, source) where T = Tuple(map(v -> StructUtils.lift(style, T, v), source))
-StructUtils.lift(::RecoPlanStyle, ::Type{Complex{T}}, source) where T = string(x)
+StructUtils.lift(style::RecoPlanStyle, ::Type{NTuple{N, T} where N}, source) where T = Tuple(map(v -> StructUtils.lift(style, T, v), source)), source
+StructUtils.lift(::RecoPlanStyle, ::Type{Complex{T}}, source) where T = string(x), source
