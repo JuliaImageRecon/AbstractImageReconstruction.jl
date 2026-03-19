@@ -97,7 +97,7 @@
     dict = StructUtils.lower(RecoPlanStyle(), Float64)
     @test dict isa Dict
     @test dict[AbstractImageReconstruction.TYPE_TAG] == "Type"
-    @test dict[AbstractImageReconstruction.VALUE_TAG] == "Float64"
+    @test dict[AbstractImageReconstruction.AbstractImageReconstruction.VALUE_TAG] == "Float64"
     @test haskey(dict, AbstractImageReconstruction.MODULE_TAG)
     # Functions
     dict = StructUtils.lower(RecoPlanStyle(), sin)
@@ -172,7 +172,7 @@
     dict = Dict{String, Any}(
       AbstractImageReconstruction.MODULE_TAG => "Core",
       AbstractImageReconstruction.TYPE_TAG => "Type",
-      AbstractImageReconstruction.VALUE_TAG => "Float64"
+      AbstractImageReconstruction.AbstractImageReconstruction.VALUE_TAG => "Float64"
       )
     
     with(MODULE_DICT => AbstractImageReconstruction.AbstractImageReconstruction.ModuleDict([Main, Core])) do
@@ -670,5 +670,84 @@
       @test_throws Exception loadPlan(io, [Main])
     end
   end
+
+  @testset "Union field serialization" begin
+    @parameter struct UnionParams <: AbstractTestParameters
+      value::Union{Float64, Int64, String} = 1.0
+      optional::Union{Nothing, Vector{Float64}} = nothing
+    end
+
+    @testset "Basic Union" begin
+      plan = RecoPlan(UnionParams)
+      # Float
+      plan.value = 3.14
+      dict = StructUtils.lower(RecoPlanStyle(), plan)
+      @test haskey(dict, "value")
+      @test dict["value"] isa Dict
+      @test dict["value"][AbstractImageReconstruction.UNION_TYPE_TAG] == "Float64"
+      @test dict["value"][AbstractImageReconstruction.VALUE_TAG] == 3.14
+      
+      # Integer
+      plan.value = 42
+      dict = StructUtils.lower(RecoPlanStyle(), plan)
+      @test dict["value"][AbstractImageReconstruction.UNION_TYPE_TAG] == "Int64"
+      @test dict["value"][AbstractImageReconstruction.VALUE_TAG] == 42
+
+      # String
+      plan.value = "hello"
+      dict = StructUtils.lower(RecoPlanStyle(), plan)
+      @test dict["value"][AbstractImageReconstruction.UNION_TYPE_TAG] == "String"
+      @test dict["value"][AbstractImageReconstruction.VALUE_TAG] == "hello"
+      
+      # Nothing
+      plan = RecoPlan(UnionParams)
+      plan.optional = nothing
+
+      dict = StructUtils.lower(RecoPlanStyle(), plan)
+
+      @test haskey(dict, "optional")
+      @test dict["optional"][AbstractImageReconstruction.UNION_TYPE_TAG] == "Nothing"
+    end
+
+    @testset "Union round-trip" begin
+      plan = RecoPlan(UnionParams)
+      plan.value = 99
+      plan.optional = [1.0, 2.0, 3.0]
+
+      io = IOBuffer()
+      savePlan(io, plan)
+      seekstart(io)
+
+      loaded = loadPlan(io, [Main])
+
+      @test loaded isa RecoPlan{UnionParams}
+      @test getproperty(loaded, :value) == 99
+      @test getproperty(loaded, :value) isa Int64
+      @test getproperty(loaded, :optional) == [1.0, 2.0, 3.0]
+    end
+
+    @testset "Union with parametric type" begin
+      @parameter struct ParametricUnionParams <: AbstractTestParameters
+        data::Union{Vector{Float64}, Vector{Int64}} = Float64[]
+      end
+
+      plan = RecoPlan(ParametricUnionParams)
+      plan.data = [1.0, 2.0, 3.0]
+
+      dict = StructUtils.lower(RecoPlanStyle(), plan)
+
+      @test dict["data"][AbstractImageReconstruction.UNION_TYPE_TAG] == "Vector{Float64}"
+
+      # Round-trip
+      io = IOBuffer()
+      savePlan(io, plan)
+      seekstart(io)
+
+      loaded = loadPlan(io, [Main])
+      @test getproperty(loaded, :data) == [1.0, 2.0, 3.0]
+      @test eltype(getproperty(loaded, :data)) == Float64
+    end
+  end
+
 
 end

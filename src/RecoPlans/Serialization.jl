@@ -9,6 +9,13 @@ struct ModuleDict
   dict::Dict{String, Dict{String, Union{DataType, UnionAll, Function}}}
   ModuleDict(mod::Module) = ModuleDict([mod])
   function ModuleDict(modules::Vector{Module})
+    if !(in(Core, modules))
+      push!(modules, Core)
+    end
+    if !(in(Base, modules))
+      push!(modules, Base)
+    end
+
     modDict = Dict{String, Dict{String, Union{DataType, UnionAll, Function}}}()
     for mod in modules
       typeDict = Dict{String, Union{DataType, UnionAll, Function}}()
@@ -86,7 +93,16 @@ function StructUtils.lower(::RecoPlanStyle, plan::RecoPlan{T}) where T
       elseif value isa AbstractArray{<:RecoPlan}
         dict[string(field)] = map(v -> StructUtils.lower(PLAN_STYLE[], v), value)
       else
-        dict[string(field)] = StructUtils.lower(FIELD_STYLE[], value)
+        fieldvalue = StructUtils.lower(FIELD_STYLE[], value)
+        # In case of a union we need to store the union + actual field value:
+        if type(plan, field) isa Union
+          union = Dict{String, Any}()
+          union[VALUE_TAG] = fieldvalue
+          union[UNION_TYPE_TAG] = string(typeof(value))
+          union[UNION_MODULE_TAG] = string(parentmodule(typeof(value)))
+          fieldvalue = union
+        end
+        dict[string(field)] = fieldvalue
       end
     end
     listeners = filter(l -> l isa AbstractPlanListener, last.(Observables.listeners(plan[field])))
@@ -182,6 +198,12 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
         param = map(x-> first(StructUtils.make(style, RecoPlan, x)), dict[key])
         foreach(p -> parent!(p, plan), param)
       else
+        # For union types we stored the actual value in the UNION_TYPE_TAG
+        if t isa Union
+          dict = dict[key] # advance into union dict
+          key = VALUE_TAG
+          t = MODULE_DICT[dict[UNION_MODULE_TAG], dict[UNION_TYPE_TAG]]
+        end
         lifted = StructUtils.lift(FIELD_STYLE[], t, dict[key])
         if !(lifted isa Tuple)
           @warn "Type $t with style $(FIELD_STYLE[]) did not return a tuple. This is likely caused by an inccorrect lift method. Returned value will be used as is"
@@ -204,7 +226,6 @@ function StructUtils.lift(::RecoPlanStyle, ::Type{T}, source::AbstractString) wh
   for (k, v) in Base.Enums.namemap(T)
       v === sym && return T(k), source
   end
-  
   error("Unexpected value $source for enum $(T), expected value in $(Base.Enums.namemap(T))")
 end
 StructUtils.lift(style::RecoPlanStyle, ::Type{<:AbstractArray{T}}, source) where T = map(v -> first(StructUtils.lift(style, T, v)), source), source
