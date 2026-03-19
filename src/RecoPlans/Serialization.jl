@@ -164,7 +164,7 @@ function StructUtils.make(style::RecoPlanStyle, ::Type{RecoPlan}, dict::Dict{Str
   end
 end
 function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{String, Any}) where {T<:AbstractImageReconstructionAlgorithm}
-  temp = StructUtils.make(style, RecoPlan, dict["parameter"])
+  temp, _ = StructUtils.make(style, RecoPlan, dict["parameter"])
   parent!(temp, plan)
   setproperty!(plan, :parameter, temp)
   return plan
@@ -176,10 +176,10 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
     key = string(name)
     if haskey(dict, key)
       if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameters
-        param = StructUtils.make(style, RecoPlan, dict[key])
+        param, _ = StructUtils.make(style, RecoPlan, dict[key])
         parent!(param, plan)
       elseif t <: Vector{<:AbstractImageReconstructionAlgorithm} || t <: Vector{<:AbstractImageReconstructionParameters}
-        param = map(x-> StructUtils.make(style, RecoPlan, x), dict[key])
+        param = map(x-> first(StructUtils.make(style, RecoPlan, x)), dict[key])
         foreach(p -> parent!(p, plan), param)
       else
         lifted = StructUtils.lift(FIELD_STYLE[], t, dict[key])
@@ -198,17 +198,24 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
 end
 
 StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where T = convert(T, source), source
-StructUtils.lift(::RecoPlanStyle, ::Type{Symbol}, source::String) = Symbol(x), source
-#StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where {T<:Enum} = string(x)
-StructUtils.lift(style::RecoPlanStyle, ::Type{AbstractArray{T}}, source) where T = map(v -> StructUtils.lift(style, T, v), source), source
+StructUtils.lift(::RecoPlanStyle, ::Type{Symbol}, source::AbstractString) = Symbol(source), source
+function StructUtils.lift(::RecoPlanStyle, ::Type{T}, source::AbstractString) where {T<:Enum}
+  sym = Symbol(source)
+  for (k, v) in Base.Enums.namemap(T)
+      v === sym && return T(k), source
+  end
+  
+  error("Unexpected value $source for enum $(T), expected value in $(Base.Enums.namemap(T))")
+end
+StructUtils.lift(style::RecoPlanStyle, ::Type{<:AbstractArray{T}}, source) where T = map(v -> first(StructUtils.lift(style, T, v)), source), source
 function StructUtils.lift(::RecoPlanStyle, T::Type{<:Type}, source::Dict)
   return MODULE_DICT[source[MODULE_TAG], source[VALUE_TAG]], source
 end
 function StructUtils.lift(::RecoPlanStyle, ::Type{Nothing}, source::Dict) 
-  if isempty(x)
+  if isempty(source)
     return nothing, source
   end
-  error("Unexpected value $x for Nothing, expected empty Dict")
+  error("Unexpected value $source for Nothing, expected empty Dict")
 end
-StructUtils.lift(style::RecoPlanStyle, ::Type{NTuple{N, T} where N}, source) where T = Tuple(map(v -> StructUtils.lift(style, T, v), source)), source
+StructUtils.lift(style::RecoPlanStyle, ::Type{NTuple{N, T}}, source) where {N,T} = Tuple(map(v -> first(StructUtils.lift(style, T, v)), source)), source
 StructUtils.lift(::RecoPlanStyle, ::Type{Complex{T}}, source) where T = string(x), source
