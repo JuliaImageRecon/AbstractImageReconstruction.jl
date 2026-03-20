@@ -98,24 +98,42 @@ function validvalue(plan, union::UnionAll, value::RecoPlan{<:ProcessResultCache}
 end
 
 # Do not serialize cache and lock, only param
-function toDictValue!(dict, cache::RecoPlan{<:ProcessResultCache})
-  size = cache.maxsize
+function StructUtils.lower(::RecoPlanStyle,
+                           plan::RecoPlan{T}) where {T<:ProcessResultCache}
+  dict = Dict{String, Any}(
+    MODULE_TAG => string(parentmodule(T)),
+    TYPE_TAG => "RecoPlan{ProcessResultCache}"
+  )
+
+  size = plan.maxsize
   if !ismissing(size)
     dict["maxsize"] = size
   end
-  dict["param"] = toDictValue(type(cache, :param), cache.param)
+
+  param = plan.param
+  if !ismissing(param)
+    dict["param"] = StructUtils.lower(PLAN_STYLE[], plan.param)
 end
+  return dict
+end
+
 
 # When deserializing always construct cache and lock
 # This means that all algorithms constructed by this plan share lock and cache
-function loadPlan!(plan::RecoPlan{<:ProcessResultCache}, dict::Dict{String, Any}, modDict)
+function StructUtils.make!(style::RecoPlanStyle,
+                           plan::RecoPlan{T},
+                           dict::Dict{String, Any}) where {T<:ProcessResultCache}
   maxsize = get(dict, "maxsize", 1)
+
   cache = LRU{UInt64, Any}(;maxsize)
+  
   param = missing
   if haskey(dict, "param")
-    param = loadPlan!(dict["param"], modDict)
+      param_dict = dict["param"]
+      param, _ = StructUtils.make(style, RecoPlan, param_dict)
     parent!(param, plan)
   end
+
   setproperty!(plan, :maxsize, maxsize)
   setproperty!(plan, :cache, cache)
   setproperty!(plan, :param, param)

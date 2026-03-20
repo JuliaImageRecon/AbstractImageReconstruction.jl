@@ -159,7 +159,7 @@ function loadPlan(filename::IO, modules::Vector{Module}; plan_style=RecoPlanStyl
         PLAN_STYLE => plan_style,
         FIELD_STYLE => field_style) do
     plan, _ = StructUtils.make(plan_style, RecoPlan, dict)
-    #loadListeners!(plan, dict)
+    loadListeners!(plan, dict)
     return plan
   end
   return plan
@@ -245,7 +245,7 @@ function deserializeUnion(union_type::Union, union_dict)
           "Consider defining `StructUtils.lift(::$(FIELD_STYLE[]), ::Type{$union_type}, ...)` " *
           "or for the individual member types.")
   elseif length(successes) == 1
-    # Only one member can represent the value -> unambiguous
+    # Only one member can represent the value -> unambiguous (but not necessarily correct)
     return successes[1][2]
   end
 
@@ -266,6 +266,37 @@ function deserializeUnion(union_type::Union, union_dict)
           "Define a more specific `StructUtils.lift` for this union.")
   end
 end
+
+loadListeners!(plan, dict) = loadListeners!(plan, plan, dict)
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict) where {T<:AbstractImageReconstructionAlgorithm}
+  loadListeners!(root, plan.parameter, dict["parameter"])
+end
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict) where {T<:AbstractImageReconstructionParameters}
+  if haskey(dict, LISTENER_TAG)
+    for (property, listenerDicts) in dict[LISTENER_TAG]
+      for listenerDict in listenerDicts
+        loadListener!(plan, Symbol(property), listenerDict)
+      end
+    end
+  end
+  for property in propertynames(plan)
+    value = getproperty(plan, property)
+    if value isa RecoPlan
+      loadListeners!(root, value, dict[string(property)])
+    end
+  end
+end
+export loadListener
+"""
+    loadListener!(plan, name::Symbol, dict, modDict)
+
+Load a listener from `dict` and attach it to property `name` of `plan`
+"""
+function loadListener!(plan, name::Symbol, dict)
+  type = MODULE_DICT[dict[MODULE_TAG], dict[TYPE_TAG]]
+  return loadListener!(type, plan, name, dict)
+end
+
 
 
 StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where T = convert(T, source), source
