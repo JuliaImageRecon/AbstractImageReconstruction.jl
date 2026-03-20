@@ -333,10 +333,66 @@ end
       @init hook!(algo)
     end
 
-Config options:
-- `constructor={true,false}` (default: `true`)
-- `hash={true,false}`        (default: `true`)
+Define a reconstruction algorithm struct with all boilerplate automatically generated.
 
+The `@reconstruction` macro generates:
+- A mutable struct with algorithm infrastructure fields (channel for FIFO buffering)
+- A simple constructor that accepts only the parameter (if `constructor=true`)
+- Implementation of all interface methods: `put!`, `take!`, `isready`, `wait`, `lock`, `unlock`
+- A `hash` method (if `hash=true`)
+
+# Configuration Options
+
+- `constructor=true` (default) - Auto-generate a simple constructor
+- `constructor=false` - No constructor generated (write custom constructor)
+- `hash=true` (default) - Generate a `hash` method
+- `hash=false` - Do not generate a `hash` method
+
+# Syntax
+
+## Required
+- `@parameter parameter::ParameterType` - The main parameter field (immutable)
+
+## Optional State Fields
+- `field::Type = default` - Typed field with default value
+- `field = default` - Untyped field with default value
+
+## Optional Hooks
+- `@init hook!(algo)` - Custom initialization hook after construction
+
+# Examples
+
+```julia
+# Simple algorithm with default constructor
+@reconstruction mutable struct MyAlgorithm <: AbstractImageReconstructionAlgorithm
+  @parameter params::MyParameters
+  state::Vector{Float64} = Float64[]
+  counter::Int = 0
+end
+
+# Algorithm with custom initialization
+@reconstruction mutable struct AlgorithmWithInit <: CustomBase
+  @parameter params::MyParameters
+  cache::Dict{String, Any} = Dict()
+
+  @init function setup!(algo::AlgorithmWithInit)
+    algo.cache["initialized"] = true
+  end
+end
+
+# Algorithm without auto-generated constructor
+@reconstruction constructor=false mutable struct CustomConstructorAlgorithm
+  @parameter params::MyParameters
+  state::Vector{Float64}
+end
+function CustomConstructorAlgorithm(params)
+  # Custom initialization logic
+  state = ...
+  algo = CustomConstructorAlgorithm(params, state, @reconstruction_internals CustomConstructorAlgorithm)
+  # ... more setup ...
+  return algo
+end
+```
 """
 macro reconstruction(ex...)
   if isempty(ex)
@@ -521,6 +577,57 @@ function define_parameter(spec::ParameterSpec; generate_hash::Bool=false)
   end
 end
 
+"""
+    @parameter [hash={true,false}] (mutable) struct Name{...} <: AbstractImageReconstructionParameters
+      field1::Type1 [= default1]
+      field2::Type2 [= default2]
+      ...
+      @validate begin
+        @assert field1 >= ... "message"
+        ...
+      end
+    end
+
+Define a parameter struct for image reconstruction algorithms.
+
+The `@parameter` macro generates:
+- A struct with the specified fields
+- A keyword constructor for easy instantiation: `Name(field1=val1, field2=val2)` with (optional) validation
+- A `validate!` function for parameter validation (if `@validate` is used)
+
+# Configuration Options
+
+- `hash=true` (default) - Generate a `hash` method for the parameter type
+- `hash=false` - Do not generate a `hash` method
+
+# Syntax
+
+## Required
+- `field::Type` - Required field with type annotation
+- `field::Type = default` - Optional field with default value
+
+## Optional Validation
+- `@validate` - Block of validation assertions
+
+# Examples
+
+```julia
+# Simple parameter with validation
+@parameter struct MyParameters <: AbstractImageReconstructionParameters
+  iterations::Int = 10
+  tolerance::Float64 = 1e-6
+  @validate begin
+    @assert iterations > 0 "iterations must be positive"
+    @assert tolerance > 0 "tolerance must be positive"
+  end
+end
+
+# Mutable parameter with hash disabled
+@parameter hash=false mutable struct MutableParameters
+  cache::Dict{String, Any} = Dict()
+end
+```
+"""
 macro parameter(ex...)
   if isempty(ex)
     error("@parameter requires a struct definition")
@@ -651,7 +758,56 @@ export @chain
       step1::P1 [= default1]
       step2::P2 [= default2]
       ...
+      @validate @assert condition "message"
     end
+
+Define a composite parameter type that chains multiple processing steps.
+
+The `@chain` macro generates:
+- A struct with the specified field parameters
+- A keyword constructor for easy instantiation
+- A `validate!` function (if `@validate` is used)
+- Call methods that chain the step parameters sequentially
+
+When called, the composite parameter executes each step in order:
+```julia
+result = params.step1(algo, inputs...)
+result = params.step2(algo, result...)
+...
+return result
+```
+
+# Configuration Options
+
+- `hash=true` (default) - Generate a `hash` method for the parameter type
+- `hash=false` - Do not generate a `hash` method
+
+# Syntax
+
+## Required
+- `step1::P1` - First processing step parameter type
+- `step2::P2` - Second processing step parameter type
+- Each field should be a parameter type that implements `(param, algo, inputs...)`
+
+## Optional
+- `@validate` - Block of validation assertions
+
+# Examples
+
+```julia
+# Chain preprocessing and reconstruction steps
+@chain struct CompositeParameters <: AbstractImageReconstructionParameters
+  pre::RadonPreprocessingParameters
+  reco::RadonBackprojectionParameters
+end
+
+# Usage
+params = CompositeParameters(
+  pre = RadonPreprocessingParameters(frames=collect(1:3)),
+  reco = RadonBackprojectionParameters(angles=angles)
+)
+result = params(algo, data)  # Runs pre then reco
+```
 """
 macro chain(ex...)
   if isempty(ex)
