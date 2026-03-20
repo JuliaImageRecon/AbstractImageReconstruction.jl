@@ -197,16 +197,12 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
       elseif t <: Vector{<:AbstractImageReconstructionAlgorithm} || t <: Vector{<:AbstractImageReconstructionParameters}
         param = map(x-> first(StructUtils.make(style, RecoPlan, x)), dict[key])
         foreach(p -> parent!(p, plan), param)
+      elseif t isa Union
+        param = deserializeUnion(t, dict[key])
       else
-        # For union types we stored the actual value in the UNION_TYPE_TAG
-        if t isa Union
-          dict = dict[key] # advance into union dict
-          key = VALUE_TAG
-          t = MODULE_DICT[dict[UNION_MODULE_TAG], dict[UNION_TYPE_TAG]]
-        end
         lifted = StructUtils.lift(FIELD_STYLE[], t, dict[key])
         if !(lifted isa Tuple)
-          @warn "Type $t with style $(FIELD_STYLE[]) did not return a tuple. This is likely caused by an inccorrect lift method. Returned value will be used as is"
+          @warn "Type $t with style $(FIELD_STYLE[]) did not return a tuple. This is likely caused by an incorrect lift method. Returned value will be used as is"
           param = lifted
         else
           param = first(lifted)
@@ -218,6 +214,59 @@ function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{S
   end
   return plan
 end
+
+function deserializeUnion(union_type::Union, union_dict)  
+  value_data = union_dict[VALUE_TAG]
+  type_str   = union_dict[UNION_TYPE_TAG]
+  module_str = union_dict[UNION_MODULE_TAG]
+
+  # 1. Try lifting with the union type itself (user may have defined a custom lift)
+  try
+    lifted = StructUtils.lift(FIELD_STYLE[], union_type, value_data)
+    return lifted isa Tuple ? first(lifted) : lifted
+  catch
+    # If this fails, fall through to trying each union member
+  end
+
+  # 2. Try lifting with each union member
+  successes = Tuple{Any,Any}[]  # (member_type, value)
+  for member in Base.uniontypes(union_type)
+    try
+      lifted = StructUtils.lift(FIELD_STYLE[], member, value_data)
+      val = lifted isa Tuple ? first(lifted) : lifted
+      push!(successes, (member, val))
+    catch
+      # This member cannot handle the data; skip
+    end
+  end
+
+  if isempty(successes)
+    error("Could not deserialize union field of type $union_type from stored value $(value_data). " *
+          "Consider defining `StructUtils.lift(::$(FIELD_STYLE[]), ::Type{$union_type}, ...)` " *
+          "or for the individual member types.")
+  elseif length(successes) == 1
+    # Only one member can represent the value -> unambiguous
+    return successes[1][2]
+  end
+
+  # 3. Multiple members succeeded – disambiguate using metadata
+  matches = [(m, v) for (m, v) in successes
+             if string(typeof(v)) == type_str &&
+                string(parentmodule(typeof(v))) == module_str]
+
+  if length(matches) == 1
+    # Exactly one result matches the stored type metadata
+    return matches[1][2]
+  elseif isempty(matches)
+    error("Ambiguous union deserialization for type $union_type: multiple union members " *
+          "can represent the stored value $(value_data). Define a more specific `StructUtils.lift` for this union field.")
+  else
+    error("Ambiguous union deserialization for type $union_type: multiple candidates " *
+          "produce values whose type matches the stored metadata $module_str.$type_str. " *
+          "Define a more specific `StructUtils.lift` for this union.")
+  end
+end
+
 
 StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where T = convert(T, source), source
 StructUtils.lift(::RecoPlanStyle, ::Type{Symbol}, source::AbstractString) = Symbol(source), source

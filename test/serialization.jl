@@ -679,6 +679,7 @@
 
     @testset "Basic Union" begin
       plan = RecoPlan(UnionParams)
+
       # Float
       plan.value = 3.14
       dict = StructUtils.lower(RecoPlanStyle(), plan)
@@ -702,9 +703,7 @@
       # Nothing
       plan = RecoPlan(UnionParams)
       plan.optional = nothing
-
       dict = StructUtils.lower(RecoPlanStyle(), plan)
-
       @test haskey(dict, "optional")
       @test dict["optional"][AbstractImageReconstruction.UNION_TYPE_TAG] == "Nothing"
     end
@@ -722,7 +721,7 @@
 
       @test loaded isa RecoPlan{UnionParams}
       @test getproperty(loaded, :value) == 99
-      @test getproperty(loaded, :value) isa Int64
+      @test getproperty(loaded, :value) isa Int64  # Verify correct type was inferred
       @test getproperty(loaded, :optional) == [1.0, 2.0, 3.0]
     end
 
@@ -745,7 +744,29 @@
 
       loaded = loadPlan(io, [Main])
       @test getproperty(loaded, :data) == [1.0, 2.0, 3.0]
-      @test eltype(getproperty(loaded, :data)) == Float64
+      @test eltype(getproperty(loaded, :data)) == Float64  # Correct type inferred
+    end
+
+    @testset "Union ambiguity resolution" begin
+      # Test that the deserializer correctly picks the right type
+      # when multiple members could technically hold the data
+      plan = RecoPlan(UnionParams)
+
+      # Integer value should deserialize as Int64, not Float64
+      plan.value = 42
+      io = IOBuffer()
+      savePlan(io, plan)
+      seekstart(io)
+      loaded = loadPlan(io, [Main])
+      @test getproperty(loaded, :value) isa Int64
+
+      # Float value should deserialize as Float64
+      plan.value = 3.14
+      io = IOBuffer()
+      savePlan(io, plan)
+      seekstart(io)
+      loaded = loadPlan(io, [Main])
+      @test getproperty(loaded, :value) isa Float64
     end
   end
 
