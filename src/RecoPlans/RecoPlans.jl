@@ -8,7 +8,7 @@ A `RecoPlan{T}` has the same properties with type checking as `T` with the excep
 
 Plans can be nested and form a tree. A parent plan can be accessed with `parent` and set with `parent!`. Algorithms and parameters can be converted to a plan with `toPlan`.
 
-Plans feature serialization with `toTOML`, `toPlan` and `loadPlan` and the ability to attach callbacks to property changes with `Observables` and `on`.
+Plans feature serialization with `savePlan` and `loadPlan` and the ability to attach callbacks to property changes with `Observables` and `on`.
 """
 mutable struct RecoPlan{T} <: AbstractRecoPlan{T}
   parent::Union{Nothing, AbstractRecoPlan}

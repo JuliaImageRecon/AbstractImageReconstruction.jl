@@ -57,7 +57,7 @@ defaultAverages(val) = length(val)
 LinkedPropertyListener(defaultAverages, plan.parameter.pre, :numAverages, plan.parameter.pre, :frames)
 plan.parameter.pre.frames = collect(1:42)
 @info plan.parameter.pre.numAverages == 42
-toTOML(stdout, plan)
+savePlan(stdout, plan)
 
 # To serialize custom listener one can inherit from `AbstractPlanListener` and follow the serialization How-To to implement the serialization.
 # Listener are deserialized after the plan is built and the parameters are set. This means that the listener can access the parameters of the plan and the plan itself.

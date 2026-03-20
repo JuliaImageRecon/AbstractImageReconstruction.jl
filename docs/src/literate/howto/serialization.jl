@@ -38,7 +38,7 @@ println(String(take!(io)))
 
 using AbstractImageReconstruction.StructUtils
 style = RecoPlanStyle()
-dict = StructUtils.lower(style, style)
+dict = StructUtils.lower(style, plan)
 
 # This dictionary contains metadata (starting with `_`) used during deserialization to recreate the correct types.
 
@@ -131,13 +131,13 @@ function StructUtils.lift(::MyRadonStyle, ::Type{RadonGeometry}, dict::AbstractD
   if haskey(dict, "_type") && dict["_type"] == "RadonFlexibleCircle"
     return StructUtils.lift(MyRadonStyle(), RadonFlexibleCircle, dict)
   end
-  return StructUtils.lift(RecoPlanStyle(), RadonGeometry, dict), dict
+  return first(StructUtils.lift(RecoPlanStyle(), RadonGeometry, dict)), dict
 end
 # In the aboive variant, we hardcoded the string to type conversion. AbstractImageReconstruction can also be supplied with modules which can be used
 # during deserialization to go from strings to types. For that we can access the scoped value MODULE_DICT inside the lift function:
 function StructUtils.lift(::MyRadonStyle, ::Type{RadonGeometry}, dict::AbstractDict)
   type = MODULE_DICT[dict["_module"], dict["_type"]]
-  return StructUtils.lift(MyRadonStyle(), type, dict), dict
+  return first(StructUtils.lift(MyRadonStyle(), type, dict)), dict
 end
 # We need to supply modules during deserialization to populate this dictionary.
 

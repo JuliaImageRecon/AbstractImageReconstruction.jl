@@ -38,11 +38,11 @@ makedocs(
         ],
         "How to" => Any[
             "Serialization" => "generated/howto/serialization.md",
-            "Plan Storage and Useability" => "generated/howto/storage.md",
             "Custom Constructors" => "generated/howto/constructors.md",
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",
             "Multi-Threading" => "generated/howto/multi_threading.md",
+            "Plan Storage and Useability" => "generated/howto/storage.md",
         ],
         "API Reference" => "API/api.md",
         #"Regularization Terms" => "API/regularization.md"],

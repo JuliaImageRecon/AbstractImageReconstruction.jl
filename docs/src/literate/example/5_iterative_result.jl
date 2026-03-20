@@ -61,11 +61,8 @@ resize_to_layout!(fig)
 fig
 
 # It's also possible to clear the plan and remove all set parameters. By default this preserves the structure of the plan. Such a plan can be used as a template for further reconstructions and stored as a TOML file:
-toTOML(stdout, plan) # to save to file use `savePlan("path/to/file.toml", plan)`
-
-# After clearing we just have the structure of the plan left:
 clear!(plan)
-toTOML(stdout, plan) # to save to file use `savePlan("path/to/file.toml", plan)`
+savePlan(stdout, plan) # to save to file use `savePlan("path/to/file.toml", plan)`
 
 # Note that the serialization here is not the same as storing the binary representation of the algorithm or the RecoPlan.
 # We essentially store key-value pairs which can be used in keyword-argument constructors to recreate the algorithm, however depending on the version of our Reco package, the underlying structs might change.

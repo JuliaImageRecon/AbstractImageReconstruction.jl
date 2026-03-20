@@ -162,7 +162,7 @@ Save the `plan` to the `file` in TOML format.
 - `plan_style`: Style for plan-level serialization (controls how `RecoPlan` instances are built)
 - `field_style`: Style for field-level serialization (controls how parameter and algorithm fields are serialized)
 
-See also `loadPlan`, `toTOML`, `toDict`.
+See also `loadPlan`, `RecoPlanStyle`.
 """
 function savePlan(filename::String, plan::RecoPlan; kwargs...)
   open(filename, "w") do io
@@ -258,6 +258,61 @@ After loading the plan, the listeners are attached to the properties using `load
 plan = loadPlan("myplan.toml", [MyModule, OtherModule])
 ```
 """
+
+export loadPlanAuto
+"""
+    loadPlanAuto(filename::AbstractString; kwargs...)
+
+Load a `RecoPlan` from a TOML file with automatic module discovery.
+
+This function scans the TOML file for `_module` tags and automatically
+collects all modules used in the plan. It then loads the plan with those modules.
+
+## Keywords
+
+- `plan_style`: Style for plan-level deserialization
+- `field_style`: Style for field-level deserialization
+
+## Example
+
+```julia
+# Automatically discover and use all modules from the plan file
+plan = loadPlanAuto("myplan.toml")
+```
+"""
+function loadPlanAuto(filename::AbstractString; kwargs...)
+  dict = TOML.parsefile(filename)
+  modules = _extractModules(dict)
+  return loadPlan(filename, modules; kwargs...)
+end
+
+function _extractModules(dict::Dict)
+  modules = Set{Module}()
+  _extractModules!(dict, modules)
+  return collect(modules)
+end
+
+function _extractModules!(dict::Dict, modules::Set{Module})
+  if haskey(dict, MODULE_TAG)
+    modstr = dict[MODULE_TAG]
+    # Try to get module by name
+    try
+      mod = eval(Meta.parse(modstr))
+      push!(modules, mod)
+    catch
+      # Module not available, will need to be provided manually
+    end
+  end
+  for (_, v) in dict
+    if v isa Dict
+      _extractModules!(v, modules)
+    elseif v isa Vector
+      for item in v
+        item isa Dict && _extractModules!(item, modules)
+      end
+    end
+  end
+end
 function loadPlan(filename::String, modules; kwargs...)
   open(filename) do io
     return loadPlan(io, modules)

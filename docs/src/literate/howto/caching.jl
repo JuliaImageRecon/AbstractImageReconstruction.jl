@@ -42,7 +42,7 @@ end
 pre = CostlyPreprocessingParameters(; frames = collect(1:3), runtime = 1.0)
 preCached = RadonCachedPreprocessingParameters(ProcessResultCache(pre, maxsize = 2))
 prePlan = toPlan(preCached)
-recoPlan = RecoPlan(IterativeRadonReconstructionParameters; angles = angles, shape = size(images)[1:3],
+recoPlan = RecoPlan(IterativeRadonReconstructionParameters; eltype = eltype(sinograms), angles = angles, shape = size(images)[1:3],
             iterations = 10, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR)
 params = RecoPlan(IterativeRadonParameters; pre = prePlan, reco = recoPlan)
 plan = RecoPlan(IterativeRadonAlgorithm; parameter = params)
@@ -68,7 +68,7 @@ reconstruct(algo, sinograms);
 
 # Caches support serialization like other `RecoPlans`:
 clear!(plan)
-toTOML(stdout, plan)
+savePlan(stdout, plan)
 
 # Caches can also be resized. You can either set the maxsize property of the RecoPlan or use `resize!` on the `ProcessResultCache`. Resizing a cache affects all algorithms build from the same plan.
 setAll!(plan, :maxsize, 0)

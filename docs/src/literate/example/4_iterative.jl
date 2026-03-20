@@ -14,11 +14,11 @@ export AbstractIterativeRadonReconstructionParameters, IterativeRadonReconstruct
 using RegularizedLeastSquares, LinearOperatorCollection
 abstract type AbstractIterativeRadonReconstructionParameters <: AbstractRadonReconstructionParameters end
 @parameter struct IterativeRadonReconstructionParameters{T, S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
-  eltype::Type{T}
+  eltype::Type{T} = Float64
   solver::Type{S}
-  iterations::Int64 
+  iterations::Int64
   reg::Vector{R}
-  shape::NTuple{N, Int64} 
+  shape::NTuple{N, Int64}
   angles::Vector{Float64}
 end
 # The parameters of this struct can be grouped into three categories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.

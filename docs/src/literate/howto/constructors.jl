@@ -1,3 +1,4 @@
+include("../../literate/example/example_include_all.jl") #hide
 # # Custom Algorithm Construction and Initialization
 
 # The `@reconstruction` macro provides two mechanisms for customizing how algorithms are constructed:

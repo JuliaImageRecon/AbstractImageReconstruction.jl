@@ -10,7 +10,7 @@ include("../../literate/example/example_include_all.jl") #hide
 # In the following we will explore the results of this design decision. If we consider an algorithm such as:
 plan = RecoPlan(IterativeRadonAlgorithm, parameter = RecoPlan(IterativeRadonParameters,
   pre = RecoPlan(RadonPreprocessingParameters, frames = collect(1:5)),
-  reco = RecoPlan(IterativeRadonReconstructionParameters, shape = size(images)[1:3], angles = angles,
+  reco = RecoPlan(IterativeRadonReconstructionParameters, eltype = eltype(sinograms), shape = size(images)[1:3], angles = angles,
             iterations = 20, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR)
 ))
 algo = build(plan)
@@ -35,9 +35,10 @@ algo = build(plan)
 # This way each task has its own algorithm and can run in parallel. As mentioned before, this parallelization might not be the most efficient parallel reconstruction, both in terms of memory and runtime.
 
 # To further improve the performance of the reconstruction, we could implement specific multi-threading `process`-ing steps for our algorithms. As an example, we will implement parallel processing for the iterative solver:
-@parameter struct ThreadedIterativeReconstructionParameters{S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+@parameter struct ThreadedIterativeReconstructionParameters{T, S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+  eltype::Type{T} = Float64
   solver::Type{S}
-  iterations::Int64 
+  iterations::Int64
   reg::Vector{R}
   shape::NTuple{N, Int64} 
   angles::Vector{Float64}
