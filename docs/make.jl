@@ -38,6 +38,7 @@ makedocs(
         ],
         "How to" => Any[
             "Serialization" => "generated/howto/serialization.md",
+            "Plan Storage and Useability" => "generated/howto/storage.md",
             "Custom Constructors" => "generated/howto/constructors.md",
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",

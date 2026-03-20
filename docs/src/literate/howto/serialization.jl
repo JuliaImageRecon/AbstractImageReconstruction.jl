@@ -165,5 +165,4 @@ recoCopy = loadPlan(io, [Main, OurRadonReco, RadonKA], field_style=MyRadonStyle(
 # - Package modules with reconstruction types (e.g., `OurRadonReco`, `RadonKA`)
 # - Any custom package modules you've used which contain types using as parameter inputs
 
-# Reconstruction package developers can provide default module lists, but users should be able to extend this
-# when they add new processing steps or custom types.
+# For a more user-friendly system that automatically tracks and discovers modules, see the Algorithm Storage How-To.
