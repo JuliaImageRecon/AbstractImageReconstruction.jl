@@ -153,7 +153,7 @@ reco
 io = IOBuffer()
 savePlan(io, reco, field_style=MyRadonStyle())
 seekstart(io)
-recoCopy = loadPlan(io, [Main, OurRadonReco, RadonKA], field_style=MyRadonStyle())
+recoCopy = loadPlan(io, [parentmodule(CustomGeomFilteredBackprojectionParameters), OurRadonReco, RadonKA], field_style=MyRadonStyle())
 
 
 
@@ -165,4 +165,4 @@ recoCopy = loadPlan(io, [Main, OurRadonReco, RadonKA], field_style=MyRadonStyle(
 # - Package modules with reconstruction types (e.g., `OurRadonReco`, `RadonKA`)
 # - Any custom package modules you've used which contain types using as parameter inputs
 
-# For a more user-friendly system that automatically tracks and discovers modules, see the Algorithm Storage How-To.
+# For a more user-friendly system that automatically tracks and discovers modules, see the Plan Storage and Usability How-To.

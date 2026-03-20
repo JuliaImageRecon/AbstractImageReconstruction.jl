@@ -23,7 +23,6 @@ end
   statistics::NamedTuple = (calls=0, cache_hits=0)
   
   @init function setup_algorithm(algo::SimpleProcessingAlgorithm)
-    # Pre-allocate cache entries based on parameter
     for i in 1:algo.params.cache_size
       algo.cache["buffer_$i"] = Float64[]
     end

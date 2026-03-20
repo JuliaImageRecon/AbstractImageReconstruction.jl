@@ -42,7 +42,7 @@ makedocs(
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",
             "Multi-Threading" => "generated/howto/multi_threading.md",
-            "Plan Storage and Useability" => "generated/howto/storage.md",
+            "Plan Storage and Usability" => "generated/howto/storage.md",
         ],
         "API Reference" => "API/api.md",
         #"Regularization Terms" => "API/regularization.md"],
