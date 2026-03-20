@@ -2,19 +2,16 @@ export ProcessResultCache
 """
     ProcessResultCache(params::AbstractImageReconstructionParameters; maxsize = 1, kwargs...)
 
-Cache of size `maxsize` for the results of type-based parameter calls:
+Cache of size `maxsize` for the results of parameter calls:
 
-    (params::P)(::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)
+    (params::P)(algo, inputs...)
 
-The cache key is based on the `hash` of the algorithm `type`, the wrapped parameter, and
+The cache key is based on the `hash` of the algorithm (or its `type`), the wrapped parameter, and
 the inputs.
 
 The same `ProcessResultCache` instance can be shared between algorithms constructed from the
 same plan. The cache is transparent with respect to the properties of the underlying
 parameter. Cached entries can be invalidated by calling `empty!(params)`
-
-To be cacheable, the wrapped parameter must implement a type-based call
-`(param::P)(::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)`.
 """
 mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
@@ -38,6 +35,13 @@ end
 ProcessResultCache(param::AbstractImageReconstructionParameters; kwargs...) = ProcessResultCache(;param, kwargs...)
 parameter(param::ProcessResultCache) = param.param
 
+function (param::ProcessResultCache)(algo::A, inputs...) where {A <: AbstractImageReconstructionAlgorithm}
+  id = hash(param.param, hash(inputs, hash(algo)))
+  result = get!(param.cache, id) do 
+    param.param(algo, inputs...)
+  end
+  return result
+end
 function (param::ProcessResultCache)(algoT::Type{A}, inputs...) where {A <: AbstractImageReconstructionAlgorithm}
   id = hash(param.param, hash(inputs, hash(algoT)))
   result = get!(param.cache, id) do 
@@ -113,7 +117,7 @@ function StructUtils.lower(::RecoPlanStyle,
   param = plan.param
   if !ismissing(param)
     dict["param"] = StructUtils.lower(PLAN_STYLE[], plan.param)
-end
+  end
   return dict
 end
 
@@ -131,7 +135,7 @@ function StructUtils.make!(style::RecoPlanStyle,
   if haskey(dict, "param")
       param_dict = dict["param"]
       param, _ = StructUtils.make(style, RecoPlan, param_dict)
-    parent!(param, plan)
+      parent!(param, plan)
   end
 
   setproperty!(plan, :maxsize, maxsize)
