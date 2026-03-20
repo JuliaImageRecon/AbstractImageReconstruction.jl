@@ -1,0 +1,14 @@
+_module = "Main.__atexample__named__storage.OurRadonReco"
+_type = "RecoPlan{DirectRadonAlgorithm}"
+
+[parameter]
+_module = "Main.__atexample__named__storage.OurRadonReco"
+_type = "RecoPlan{DirectRadonParameters}"
+
+    [parameter.reco]
+    _module = "Main.__atexample__named__storage.OurRadonReco"
+    _type = "RecoPlan{RadonFilteredBackprojectionParameters}"
+
+    [parameter.pre]
+    _module = "Main.__atexample__named__storage.OurRadonReco"
+    _type = "RecoPlan{RadonPreprocessingParameters}"

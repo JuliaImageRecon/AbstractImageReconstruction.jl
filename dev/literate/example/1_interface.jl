@@ -26,24 +26,38 @@ abstract type AbstractDirectRadonAlgorithm <: AbstractRadonAlgorithm end
 abstract type AbstractIterativeRadonAlgorithm <: AbstractRadonAlgorithm end
 
 # ## Internal Interface
-# Reconstruction algorithms in AbstractImageReconstruction.jl are expected to be implemented in the form of distinct processing steps, implemented in their own `process` methods.
-# The `process` function takes an algorithm, parameters, and inputs and returns the result of the processing step.
-# If no function is defined for an instance of an algorithm, the default implementation is called. This method tries to call the function `process` with the type of the algorithm:
+# In AbstractImageReconstruction.jl, reconstruction algorithms are driven by *parameters*. Parameters are callable objects that implement individual processing steps.
+# A parameter type `MyParams` is expected to implement one of:
 # ```julia
-# process(algo::AbstractImageReconstructionAlgorithm, param::AbstractImageReconstructionParameters, inputs...) = process(typeof(algo), param, inputs...)
+#   (param::MyParams)(::Type{<:MyAlgorithm}, inputs...)
+#   (param::MyParams)(algo::MyAlgorithm,      inputs...)
 # ```
-# The implementation of reconstruction algorithms is therefore expected to either implement the `process` function for the algorithm type or for the instance. Dispatch on instances allow an instance to change its state, while dispatch on types allows for pure helper functions.
+# The type-based variant is preferred for pure functions; the instance-based variant allows mutation of the algorithm state. The default implementation of
+# ```julia
+#   (param::AbstractImageReconstructionParameters)(algo::AbstractImageReconstructionAlgorithm, inputs...) = param(algo, inputs...) → param(typeof(algo), inputs...)
+# ```
+# simply forwards to the type-based method.
 
-# A `process` itself can invoke other `process` functions to enable multiple processing steps and generally have arbitarry control flow. It is not required to implement a straight-foward pipeline. We will see this later when we implementd our algorithms.
+# A reconstruction algorithm typically stores a *main* parameter. Multiple processing steps can be encoded by
+# composing parameter calls; there is no requirement to implement a strict linear pipeline.
 
-# Let's define a preprocessing step that we can share between our algorithms. We want to allow the user to select certain frames from a time series and average them.
-# We will use the `@kwdef` macro to provide constructor with keyword arguments and default values
+# To extend an existing algorithm with new behavior, it's enough to implement new parameters or potentially add an algorithm.
+# Later on, we will see more infrastructure of the package which focuses on parameters and their Configuration.
+
+# Let's define a preprocessing step that we can share between our algorithms. We want to
+# allow the user to select certain frames from a time series and average them. We will use
+# the `@parameter` macro. This is similar to `Base.@kwdef` and allows us to provide a constructor with keyword arguments and default values.
+# It also allows us to validate the values of our parameters:
 using Statistics
-Base.@kwdef struct RadonPreprocessingParameters <: AbstractRadonPreprocessingParameters
+@parameter struct RadonPreprocessingParameters <: AbstractRadonPreprocessingParameters
   frames::Vector{Int64} = []
   numAverages::Int64 = 1
+
+  @validate begin
+    @assert numAverages >= 0 "Averages must be a positive integer"
+  end
 end
-function AbstractImageReconstruction.process(::Type{<:AbstractRadonAlgorithm}, params::RadonPreprocessingParameters, data::AbstractArray{T, 4}) where {T}
+function (params::RadonPreprocessingParameters)(::Type{<:AbstractRadonAlgorithm}, data::AbstractArray{T, 4}) where {T}
   frames = isempty(params.frames) ? (1:size(data, 4)) : params.frames
   data = data[:, :, :, frames]
   
@@ -58,3 +72,4 @@ end
 # ## User Interface
 # A user of our package should be able to reconstruct images by calling the `reconstruct` function. This function takes an algorithm and an input and returns the reconstructed image.
 # Internally, the `reconstruct` function calls the `put!` and `take!` functions of the algorithm to pass the input and retrieve the output. Algorithms must implement these functions and are expected to have FIFO behavior.
+# However, much of this boilerplate can be created via macros, as we will see in this example.

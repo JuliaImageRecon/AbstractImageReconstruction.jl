@@ -3,7 +3,7 @@
 # In this example we will set up our radon data using RadonKA.jl, ImagePhantoms.jl and ImageGeoms.jl. We will start with simple 2D images and their sinograms and continue with a time series of 3D images and sinograms.
 
 # ## Background
-# The Radon transform is an integral transform that projects the values of a function(or a phantom) along straight lines onto a detector.
+# The Radon transform is an integral transform that projects the values of a function (or a phantom) along straight lines onto a detector.
 # These projections are recorded for a number of different angles and form the so-called sinogram. The Radon transform and its adjoint form the mathematical basis
 # for computed tomography (CT) and other imaging modalities such as single photon emission computed tomography (SPECT) and positron emission tomography (PET).
 
@@ -18,7 +18,7 @@ size(image)
 
 # This produces a 256x256 image of a Shepp-Logan phantom. Next, we will generate the Radon data using `radon` from RadonKA.jl.
 # The arguments of this function are the image or phantom to be transformed, the angles at which the projections are taken, and the used geometry of the system. For this example we will use the default parallel circle geometry. 
-# For more details, we refer to the RadonKA.jl documentation. We will use 256 angles for the projections, between 0 and π.
+# For more details, we refer to the RadonKA.jl documentation. We will use 256 angles for the projections between 0 and π.
 using RadonKA
 angles = collect(range(0, π, 256))
 sinogram = Array(RadonKA.radon(image, angles))
@@ -39,8 +39,8 @@ plot_image(fig[1,2], sinogram, title = "Sinogram")
 resize_to_layout!(fig)
 fig
 
-# ## 3D Pnantom
-# RadonKA.jl also supports 3D Radon transforms. The first two dimensions are interpreted as the XY plane where the transform applied and the last dimensions is the rotational axis z of the projections.
+# ## 3D Phantom
+# RadonKA.jl also supports 3D Radon transforms. The first two dimensions are interpreted as the XY plane where the transform is applied and the last dimension is the rotational axis z of the projections.
 # For that we need to create a 3D Shepp-Logan phantom. First we retrieve the parameters of the ellipsoids of the Shepp-Logan phantom:
 shape = (64, 64, 64)
 params = map(collect, ellipsoid_parameters(; fovs = shape));
@@ -74,7 +74,7 @@ fig
 
 
 # ## Time Series of 3D Phantoms
-# Lastly, we want to add a time dimension to our 3D phantom. For our example we will increase the intensity of the third ellipsoid every time step or frame.
+# Lastly, we want to add a time dimension to our 3D phantom. For our example, we will increase the intensity of the third ellipsoid every time step or frame.
 images = similar(image, size(image)..., 5)
 sinograms = similar(sinogram, size(sinogram)..., 5)
 for (i, intensity) in enumerate(range(params[3][end], 0.3, 5))

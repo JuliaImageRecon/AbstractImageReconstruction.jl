@@ -13,17 +13,18 @@ export AbstractIterativeRadonReconstructionParameters, IterativeRadonReconstruct
 # We will start by defining the parameters for the algorithm and the processing steps. Afterwards we can implement the algorithm itself. Since we will use the same preprocessing as for the direct reconstruction, we can reuse the parameters and processing steps and jump directly to the iterative parameters:
 using RegularizedLeastSquares, LinearOperatorCollection
 abstract type AbstractIterativeRadonReconstructionParameters <: AbstractRadonReconstructionParameters end
-Base.@kwdef struct IterativeRadonReconstructionParameters{S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+@parameter struct IterativeRadonReconstructionParameters{T, S <: AbstractLinearSolver, R <: AbstractRegularization, N} <: AbstractIterativeRadonReconstructionParameters
+  eltype::Type{T} = Float64
   solver::Type{S}
-  iterations::Int64 
+  iterations::Int64
   reg::Vector{R}
-  shape::NTuple{N, Int64} 
+  shape::NTuple{N, Int64}
   angles::Vector{Float64}
 end
-# The parameters of this struct can be grouped into three catergories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.
+# The parameters of this struct can be grouped into three categories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.
 
 # Since we want to construct the linear operator only once, we will write the `process` method with the operator as a given argument:
-function AbstractImageReconstruction.process(::Type{<:AbstractIterativeRadonAlgorithm}, params::IterativeRadonReconstructionParameters, op, data::AbstractArray{T, 4}) where {T}
+function (params::IterativeRadonReconstructionParameters{T})(::Type{<:AbstractIterativeRadonAlgorithm}, op, data::AbstractArray{T, 4}) where {T}
   solver = createLinearSolver(params.solver, op; iterations = params.iterations, reg = params.reg)
 
   result = similar(data, params.shape..., size(data, 4))
@@ -39,49 +40,29 @@ end
 
 # ## Algorithm
 # Similar to the direct reconstruction algorithm, we want our iterative algorithm to accept both preprocessing and reconstruction parameters. We will encode this in a new type:
-Base.@kwdef struct IterativeRadonParameters{P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters} <: AbstractRadonParameters 
+@parameter struct IterativeRadonParameters{P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters} <: AbstractRadonParameters 
   pre::P
   reco::R
 end
 # Instead of defining essentially the same struct again, we could also define a more generic one and specify the supported reconstruction parameter as type constraints in the algorithm constructor.
 
-# Unlike the direct reconstruction algorithm, the iterative algorithm has to store the linear operator. We will store it as a field in the algorithm type:
-mutable struct IterativeRadonAlgorithm{D <: IterativeRadonParameters} <: AbstractIterativeRadonAlgorithm
-  parameter::D
-  op::Union{Nothing, AbstractLinearOperator}
-  output::Channel{Any}
-end
+# Unlike the direct reconstruction algorithm, the iterative algorithm has to store the linear operator. We will store it as a field in the algorithm type in an initialization step:
+@reconstruction mutable struct IterativeRadonAlgorithm{D <: IterativeRadonParameters} <: AbstractIterativeRadonAlgorithm
+  @parameter parameter::D
+  op::Union{Nothing, AbstractLinearOperator} = nothing
 
-# We will set the operator to `nothing` in the constructor:
-function IterativeRadonAlgorithm(parameter::D) where D
-  return IterativeRadonAlgorithm{D}(parameter, nothing, Channel{Any}(Inf))
+  @init function createOperator(algo)
+    params = algo.parameter.reco
+    algo.op = RadonOp(params.eltype; shape = params.shape, angles = params.angles)
+  end
 end
+# If our algorithms require more complex initial state or parametric types, we can also create custom constructors. See the API for more information.
 
-# Next we implement the `process` method for our reconstruction parameters and an algorithm instance. This allows us to access the operator and pass it to the processing step:
-function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::IterativeRadonParameters{P, R}, data::AbstractArray{T, 4}) where {T, P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters}
-  data = process(algo, params.pre, data)
-  return process(algo, params.reco, algo.op, data)
-end
-
-# Note that initially the operator is `nothing` and the processing step would fail as it stands. To "fix" this we define a `process` method for the algorithm instance which creates the operator and stores it in the algorithm:
-function AbstractImageReconstruction.process(algo::IterativeRadonAlgorithm, params::AbstractIterativeRadonReconstructionParameters, ::Nothing, data::AbstractArray{T, 4}) where {T}
-  op = RadonOp(T; shape = params.shape, angles = params.angles)
-  algo.op = op
-  return process(AbstractIterativeRadonAlgorithm, params, op, data)
+# Next we implement the our manual chain method for our reconstruction parameters and an algorithm instance. This allows us to access the operator and pass it to the reconstruction step:
+function (params::IterativeRadonParameters{P, R})(algo::IterativeRadonAlgorithm, data::AbstractArray{T, 4}) where {T, P<:AbstractRadonPreprocessingParameters, R<:AbstractIterativeRadonReconstructionParameters}
+  data = params.pre(algo, data)
+  return params.reco(algo, algo.op, data)
 end
 
 # Our algorithm is not type stable. To fix this, we would need to know the element type of the sinograms during construction. Which is possible with a different parameterization of the algorithm. We will not do this here.
 # Often times the performance impact of this is negligible as the critical sections are in the preprocessing or the iterative solver, especially since we still dispatch on the operator.
-
-# To finish up the implementation we need to implement the remaining runtime related functions:
-Base.take!(algo::IterativeRadonAlgorithm) = Base.take!(algo.output)
-function Base.put!(algo::IterativeRadonAlgorithm, data::AbstractArray{T, 4}) where {T}
-  lock(algo.output) do
-    put!(algo.output, process(algo, algo.parameter, data))
-  end
-end
-Base.lock(algo::IterativeRadonAlgorithm) = lock(algo.output)
-Base.unlock(algo::IterativeRadonAlgorithm) = unlock(algo.output)
-Base.isready(algo::IterativeRadonAlgorithm) = isready(algo.output)
-Base.wait(algo::IterativeRadonAlgorithm) = wait(algo.output)
-AbstractImageReconstruction.parameter(algo::IterativeRadonAlgorithm) = algo.parameter
