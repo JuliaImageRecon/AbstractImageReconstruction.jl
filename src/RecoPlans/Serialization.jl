@@ -180,7 +180,7 @@ end
 function StructUtils.lower(::RecoPlanStyle, plan::RecoPlan{T}) where T
   dict = Dict{String, Any}(
     MODULE_TAG => string(parentmodule(T)),
-    TYPE_TAG => "RecoPlan{$(getfield(parentmodule(T), nameof(T)))}"
+    TYPE_TAG => "RecoPlan{$(nameof(T))}"
   )
 
   listenerDict = Dict{String, Any}()

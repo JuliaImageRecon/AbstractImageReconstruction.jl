@@ -62,7 +62,6 @@ function (params::CustomGeomFilteredBackprojectionParameters)(::Type{<:AbstractD
   return RadonKA.backproject_filtered(data, params.angles; filter = params.filter, geometry = params.geometry)
 end
 
-
 # First we will take a look at the default serialization:
 reco = RecoPlan(CustomGeomFilteredBackprojectionParameters; angles = [0.0], 
         geometry = RadonFlexibleCircle(size(sinograms, 1), [0.0, 0.0], [1.0, 1.0]))
@@ -146,16 +145,16 @@ end
 
 # Finally, we can test that our custom serialization works correctly:
 
-# First, let's see if our serialization works:
-savePlan(stdout, reco; field_style = MyRadonStyle())
+# First, let's print `reco again`:
+reco
 
 # Afterwards, we can save and load a plan from an IO buffer:
-# ```julia
-# io = IOBuffer()
-# savePlan(io, reco, field_style=MyRadonStyle())
-# seekstart(io)
-# recoCopy = loadPlan(io, [OurRadonReco, RadonKA], field_style=MyRadonStyle())
-# ```
+
+io = IOBuffer()
+savePlan(io, reco, field_style=MyRadonStyle())
+seekstart(io)
+recoCopy = loadPlan(io, [@__MODULE__, OurRadonReco, RadonKA], field_style=MyRadonStyle())
+
 
 
 # For deserialization, we needed to provide the modules where the types are defined. The module dict used within our lift method is populated from these modules.

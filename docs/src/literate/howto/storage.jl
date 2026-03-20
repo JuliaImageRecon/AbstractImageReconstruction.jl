@@ -11,7 +11,7 @@ include("../../literate/example/example_include_all.jl") #hide
 # Here's a simple system for managing plan directories and modules.
 # We first track plans and modules for our reconstruction:
 const recoPlanPaths = AbstractString[]
-const recoPlanModules = Module[AbstractImageReconstruction, OurRadonReco, RegularizedLeastSquares]
+const recoPlanModules = Module[@__MODULE__, AbstractImageReconstruction, OurRadonReco, RegularizedLeastSquares]
 
 # Then we define methods to extend our storage:
 addRecoPlanPath(path) = !(path in recoPlanPaths) ? pushfirst!(recoPlanPaths, path) : nothing
