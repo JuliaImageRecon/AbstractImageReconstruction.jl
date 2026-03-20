@@ -50,19 +50,118 @@ getindex(modDict::ScopedValue{Union{Nothing, ModuleDict}}, mod, type) = modDict[
 
 export RecoPlanStyle
 export CustomPlanStyle
+"""
+    RecoPlanStyle
+
+Style for serializing `RecoPlan` and related types using `StructUtils`.
+
+This style customizes the serialization and deserialization of reconstruction plans,
+parameters, and algorithms. It uses `StructUtils.lower` for serialization and
+`StructUtils.lift` for deserialization, with special handling for metadata preservation.
+
+## Serialization (lower)
+
+The `StructUtils.lower` method for `RecoPlanStyle`:
+- For `RecoPlan`s: stores `_module`, `_type` tags and serializes nested plans
+- For parameters/algorithms: applies default `StructUtils.lower` from `FIELD_STYLE`
+- Custom types can be handled by defining `StructUtils.lower(::RecoPlanStyle, ::Type{T})`
+- Array elements are recursively lowered
+
+## Deserialization (lift/make)
+
+Deserialization has two layers:
+1. **`lift`**: Converts TOML values back to Julia types
+   - Used for simple types: `Symbol`, `Enum`, `AbstractArray`, `Type`, `Complex`
+   - Union types handled by `deserializeUnion` which tries each member
+   - Users can define custom `StructUtils.lift(::RecoPlanStyle, ::Type{T}, source)`
+2. **`make/make!`**: Reconstructs `RecoPlan` instances
+   - Only needed when the plan structure itself must be customized
+   - `make` creates the plan, `make!` fills in properties
+
+## Customization
+
+Users can customize serialization by:
+
+1. Defining `StructUtils.lower` for specific types:
+   ```julia
+   StructUtils.lower(::RecoPlanStyle, x::MyType) = Dict("special" => x.value)
+   ```
+
+2. Defining `StructUtils.lift` for specific types:
+   ```julia
+   StructUtils.lift(::RecoPlanStyle, ::Type{MyType}, dict) = MyType(dict["special"]), dict
+   ```
+
+3. Defining custom plan styles extending `CustomPlanStyle`:
+   ```julia
+   struct MyStyle <: CustomPlanStyle end
+   StructUtils.lower(::MyStyle, x) = StructUtils.lower(RecoPlanStyle(), x)
+   ```
+   Styles based on `CustomPlanStyle` default to `RecoPlanStyle`.
+
+## Plan Levels
+
+The serialization system supports two levels of style customization:
+
+- **`plan_style`**: Controls how plans are built and which style's `make/make!` methods are used
+- **`field_style`**: Controls how field values (parameters, algorithms) are serialized/deserialized
+
+These are passed to `savePlan` and `loadPlan`:
+
+```julia
+savePlan(io, plan; plan_style=MyPlanStyle(), field_style=MyFieldStyle())
+loaded = loadPlan(io, modules; plan_style=MyPlanStyle(), field_style=MyFieldStyle())
+```
+
+## Example
+
+```julia
+plan = toPlan(algo)
+savePlan("myplan.toml", plan)
+loaded = loadPlan("myplan.toml", [MyModule, OtherModule])
+```
+"""
 struct RecoPlanStyle <: StructUtils.StructStyle end
 const PLAN_STYLE = ScopedValue{StructUtils.StructStyle}(RecoPlanStyle())
 const FIELD_STYLE = ScopedValue{StructUtils.StructStyle}(RecoPlanStyle())
 StructUtils.dictlike(::Type{RecoPlan}) = true
 
+"""
+    CustomPlanStyle
+
+Abstract type for custom plan serialization styles.
+
+Subtypes of `CustomPlanStyle` can override `StructUtils.lower`,
+`StructUtils.make!` and `StructUtils.lift` to provide custom serialization and deserialization behavior for specific types.
+
+Use `CustomPlanStyle` when you need different serialization for certain fields
+while keeping the standard plan structure. The default delegation to `RecoPlanStyle`
+is provided for convenience.
+
+## Example
+
+```julia
+struct CustomStyle <: CustomPlanStyle end
+
+StructUtils.lower(::CustomStyle, x::SpecialType) = Dict("custom" => x.data)
+
+loadPlan("plan.toml", modules; field_style=CustomStyle())
+```
+"""
 abstract type CustomPlanStyle <: StructUtils.StructStyle end
 StructUtils.lower(::CustomPlanStyle, x) = StructUtils.lower(RecoPlanStyle(), x)
 
 export savePlan
 """
-    savePlan(file::Union{AbstractString, IO}, plan::RecoPlan)
+    savePlan(file::Union{AbstractString, IO}, plan::RecoPlan; plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
 
 Save the `plan` to the `file` in TOML format.
+
+## Keywords
+
+- `plan_style`: Style for plan-level serialization (controls how `RecoPlan` instances are built)
+- `field_style`: Style for field-level serialization (controls how parameter and algorithm fields are serialized)
+
 See also `loadPlan`, `toTOML`, `toDict`.
 """
 function savePlan(filename::String, plan::RecoPlan; kwargs...)
@@ -143,10 +242,21 @@ end
 
 export loadPlan
 """
-    loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
-  
+    loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module}; plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
+
 Load a `RecoPlan` from a TOML file. The `modules` argument is a vector of modules that contain the types used in the plan.
 After loading the plan, the listeners are attached to the properties using `loadListener!`.
+
+## Keywords
+
+- `plan_style`: Style for plan-level deserialization (controls how `RecoPlan` instances are built)
+- `field_style`: Style for field-level deserialization (controls how parameter and algorithm fields are deserialized)
+
+## Example
+
+```julia
+plan = loadPlan("myplan.toml", [MyModule, OtherModule])
+```
 """
 function loadPlan(filename::String, modules; kwargs...)
   open(filename) do io

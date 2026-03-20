@@ -40,6 +40,8 @@ AbstractImageReconstruction.clear!
 Base.ismissing(::RecoPlan, ::Symbol)
 Observables.on(::Any, ::RecoPlan, ::Symbol)
 Observables.off(::RecoPlan, ::Symbol, ::Any)
+AbstractImageReconstruction.RecoPlanStyle
+AbstractImageReconstruction.CustomPlanStyle
 AbstractImageReconstruction.savePlan
 AbstractImageReconstruction.loadPlan
 AbstractImageReconstruction.parent(::RecoPlan)
@@ -53,7 +55,6 @@ AbstractImageReconstruction.parentproperties
 ```@docs
 AbstractImageReconstruction.LinkedPropertyListener
 AbstractImageReconstruction.ProcessResultCache
-Base.hash(::AbstractImageReconstructionParameters, ::UInt64)
 AbstractImageReconstruction.toKwargs(::AbstractImageReconstructionParameters)
 AbstractImageReconstruction.fromKwargs
 
