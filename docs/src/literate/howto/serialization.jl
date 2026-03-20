@@ -145,10 +145,10 @@ end
 
 # Finally, we can test that our custom serialization works correctly:
 
-# First, lets print `reco again`:
+# First, let's print `reco again`:
 reco
 
-# Afterwards, we can sve and load a plan from an IO buffer:
+# Afterwards, we can save and load a plan from an IO buffer:
 
 io = IOBuffer()
 savePlan(io, reco, field_style=MyRadonStyle())

@@ -1,13 +1,13 @@
 include("../../literate/example/example_include_all.jl") #hide
 
 # # Multi-Threading
-# `AbstractImageReconstruction` assumes that algorithms are stateful. This is reflected in the FIFO behaviour and the locking interface of algorithms.
+# `AbstractImageReconstruction` assumes that algorithms are stateful. This is reflected in the FIFO behavior and the locking interface of algorithms.
 # The motivation behind this choice is that the nature of computations within an algorithms heavily impact if multi-threading is beneficial or not.
 # For example, consider a GPU-accelerated reconstruction. There it might be faster to sequentially process all images on the GPU instead of processing them in parallel. Or consider, the preprocessing step of the Radon example where we average our data. If we were to extend our algorithm to read sinograms from a file, it might be inefficient to partially read and average frames from the file in parallel.
 # Instead it would be more efficient to read the required file in one go and then average the frames in parallel.
-# Therefore, the actual runtime behaviour is intended to be an implementation detail of an algorithm which is to be abstracted behind `reconstruct`.
+# Therefore, the actual runtime behavior is intended to be an implementation detail of an algorithm which is to be abstracted behind `reconstruct`.
 
-# In the following we will explore the results of this design decision. If we consider a n algorithm such as:
+# In the following we will explore the results of this design decision. If we consider an algorithm such as:
 plan = RecoPlan(IterativeRadonAlgorithm, parameter = RecoPlan(IterativeRadonParameters,
   pre = RecoPlan(RadonPreprocessingParameters, frames = collect(1:5)),
   reco = RecoPlan(IterativeRadonReconstructionParameters, shape = size(images)[1:3], angles = angles,

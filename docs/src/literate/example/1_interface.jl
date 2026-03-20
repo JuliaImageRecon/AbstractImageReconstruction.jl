@@ -41,8 +41,8 @@ abstract type AbstractIterativeRadonAlgorithm <: AbstractRadonAlgorithm end
 # A reconstruction algorithm typically stores a *main* parameter. Multiple processing steps can be encoded by
 # composing parameter calls; there is no requirement to implement a strict linear pipeline.
 
-# To extend an exisiting algorithm with new behaviour, it's enough to implement new parameters or potentially add an algorithm.
-# Later one, we will see more infrastructure of the package which focuses on parameters and their Configuration.
+# To extend an existing algorithm with new behavior, it's enough to implement new parameters or potentially add an algorithm.
+# Later on, we will see more infrastructure of the package which focuses on parameters and their Configuration.
 
 # Let's define a preprocessing step that we can share between our algorithms. We want to
 # allow the user to select certain frames from a time series and average them. We will use

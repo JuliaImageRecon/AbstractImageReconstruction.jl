@@ -143,7 +143,7 @@ end
 """
     hash(parameter::AbstractImageReconstructionParameters, h)
 
-Default hash function for image reconstruction paramters. Uses `nameof` the parameter and all fields not starting with `_` to compute the hash.
+Default hash function for image reconstruction parameters. Uses `nameof` the parameter and all fields not starting with `_` to compute the hash.
 """
 function Base.hash(parameter::T, h::UInt64) where T <: AbstractImageReconstructionParameters
   h = hash(nameof(T), h)

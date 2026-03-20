@@ -26,7 +26,7 @@ fig
 # To make this process easier, we can use the `RecoPlan` feature of `AbstractImageReconstruction`. This allows us to define a plan for the reconstruction, which can then be used to easily reconstruct the images.
 
 # ## RecoPlan
-# A `RecoPlan` is a thin-wrapper around nested key-value pairs that represent the same tree structure of our algorithm and parameters. The plan can be fully parametertized and then used to create the algorithm.
+# A `RecoPlan` is a thin-wrapper around nested key-value pairs that represent the same tree structure of our algorithm and parameters. The plan can be fully parameterized and then used to create the algorithm.
 # But it can also miss parameters and describe the structure of the algorithm only. This can be useful to create a template for the reconstruction, which can be filled with parameters later on.
 
 # We can create a plan from our algorithm:
@@ -48,7 +48,7 @@ setAll!(plan, :solver, FISTA);
 dict = Dict{Symbol, Any}(:reg => [L1Regularization(0.001)])
 setAll!(plan, dict);
 
-# Once we have parametertized our plan, we can build the algorithm from it:
+# Once we have parameterized our plan, we can build the algorithm from it:
 algo_iter = build(plan)
 imag_iter = reconstruct(algo_iter, sinograms)
 fig = Figure()

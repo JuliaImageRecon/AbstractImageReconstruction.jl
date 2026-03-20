@@ -32,11 +32,11 @@ end
 @parameter struct RadonCachedPreprocessingParameters{P <: AbstractRadonPreprocessingParameters, PU <: AbstractUtilityReconstructionParameters{P}} <: AbstractRadonPreprocessingParameters
   params::Union{P, PU}
 end
-# Note that this case is a bit artifical and a more sensible place would be the algorithm parameters themselves. However, for the case of simplicity we did not introduce the concept in the example.
-# In this artifical case we just pass the parameters to the processing step. A real implementation might do some more processing with the result of the inner processing step:
+# Note that this case is a bit artificial and a more sensible place would be the algorithm parameters themselves. However, for the case of simplicity we did not introduce the concept in the example.
+# In this artificial case we just pass the parameters to the processing step. A real implementation might do some more processing with the result of the inner processing step:
 (params::RadonCachedPreprocessingParameters)(algoT::Type{<:AbstractRadonAlgorithm}, args...) = params.params(algoT, args...)
 
-# We deliberaly implement the callable method for the algorithm type to avoid our cache being invalided by state changes of an algorithm instance.
+# We deliberately implement the callable method for the algorithm type to avoid our cache being invalided by state changes of an algorithm instance.
 
 # Now we construct a plan for a direct reconstruction algorithm that uses the costly preprocessing step:
 pre = CostlyPreprocessingParameters(; frames = collect(1:3), runtime = 1.0)

@@ -10,7 +10,7 @@ export AbstractImageReconstructionParameters
 """
     AbstractImageReconstructionParameters
 
-Abstract type for image reconstruction parameters.  An algorithm consists of one ore more `process` steps, each can have its own parameters. Parameters can be arbitrarly nested.
+Abstract type for image reconstruction parameters.  An algorithm consists of one or more `process` steps, each can have its own parameters. Parameters can be arbitrarily nested.
 Parameters are callable and can be invoked directly on algorithm instances:
 
     result = param(algo, inputs...)

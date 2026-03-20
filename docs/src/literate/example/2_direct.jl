@@ -6,7 +6,7 @@ export AbstractDirectRadonReconstructionParameters, RadonFilteredBackprojectionP
 # To implement our direct reconstruction algorithms we need to define a few more methods and types. We will start by defining the parameters for the backprojection and for the filtered backprojection. Afterwards we can implement the algorithm itself.
 
 # ## Parameters and Processing
-# For convenience we first introduce a new abstract type for the direct reconstruction paramters:
+# For convenience we first introduce a new abstract type for the direct reconstruction parameters:
 abstract type AbstractDirectRadonReconstructionParameters <: AbstractRadonReconstructionParameters end
 # The backprojection parameters are simple and only contain the number of angles:
 @parameter struct RadonBackprojectionParameters <: AbstractDirectRadonReconstructionParameters
