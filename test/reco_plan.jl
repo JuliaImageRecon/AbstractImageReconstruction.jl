@@ -1,6 +1,6 @@
 @testset "RecoPlan" begin
   pre = RadonPreprocessingParameters(frames = collect(1:3))
-  reco = IterativeRadonReconstructionParameters(; shape = size(images)[1:3], angles = angles, iterations = 1, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR);
+  reco = IterativeRadonReconstructionParameters(; eltype = Float64, shape = size(images)[1:3], angles = angles, iterations = 1, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR);
   algo = IterativeRadonAlgorithm(IterativeRadonParameters(pre, reco))
 
   
@@ -10,7 +10,7 @@
 
     # With kwarg constructor
     plan_fromKwargs = RecoPlan(IterativeRadonAlgorithm; parameter = RecoPlan(IterativeRadonParameters; pre = RecoPlan(RadonPreprocessingParameters; frames = collect(1:3)), 
-      reco = RecoPlan(IterativeRadonReconstructionParameters; shape = size(images)[1:3], angles = angles, iterations = 1, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR)))
+      reco = RecoPlan(IterativeRadonReconstructionParameters; eltype = Float64, shape = size(images)[1:3], angles = angles, iterations = 1, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR)))
 
     # Individually with setproperty!
     plan_pre = RecoPlan(RadonPreprocessingParameters)
@@ -19,6 +19,7 @@
     @test build(plan_pre) isa RadonPreprocessingParameters
 
     plan_reco = RecoPlan(IterativeRadonReconstructionParameters)
+    plan_reco.eltype = Float64
     plan_reco.shape = size(images)[1:3]
     plan_reco.angles = angles
     plan_reco.iterations = 1

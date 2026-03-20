@@ -2,8 +2,16 @@ export ProcessResultCache
 """
     ProcessResultCache(params::AbstractImageReconstructionParameters; maxsize = 1, kwargs...)
 
-Cache of size `maxsize` for the result of `process` methods. The cache is based on the `hash` of the inputs of the `process` function. Cache is shared between all algorithms constructed from the same plan.
-The cache is transparent for properties of the underlying parameter. Cache can be invalidated by calling `empty!` on the cache.
+Cache of size `maxsize` for the results of parameter calls:
+
+    (params::P)(algo, inputs...)
+
+The cache key is based on the `hash` of the algorithm (or its `type`), the wrapped parameter, and
+the inputs.
+
+The same `ProcessResultCache` instance can be shared between algorithms constructed from the
+same plan. The cache is transparent with respect to the properties of the underlying
+parameter. Cached entries can be invalidated by calling `empty!(params)`
 """
 mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
@@ -25,14 +33,19 @@ mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{
   end
 end
 ProcessResultCache(param::AbstractImageReconstructionParameters; kwargs...) = ProcessResultCache(;param, kwargs...)
-process(algo::A, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algo, param, inputs...)
-process(algoT::Type{<:A}, param::ProcessResultCache, inputs...) where {A <: AbstractImageReconstructionAlgorithm} = hashed_process(algoT, param, inputs...)
 parameter(param::ProcessResultCache) = param.param
 
-function hashed_process(algo, param::ProcessResultCache, inputs...)
+function (param::ProcessResultCache)(algo::A, inputs...) where {A <: AbstractImageReconstructionAlgorithm}
   id = hash(param.param, hash(inputs, hash(algo)))
   result = get!(param.cache, id) do 
-    process(algo, param.param, inputs...)
+    param.param(algo, inputs...)
+  end
+  return result
+end
+function (param::ProcessResultCache)(algoT::Type{A}, inputs...) where {A <: AbstractImageReconstructionAlgorithm}
+  id = hash(param.param, hash(inputs, hash(algoT)))
+  result = get!(param.cache, id) do 
+    param.param(algoT, inputs...)
   end
   return result
 end
@@ -89,24 +102,42 @@ function validvalue(plan, union::UnionAll, value::RecoPlan{<:ProcessResultCache}
 end
 
 # Do not serialize cache and lock, only param
-function toDictValue!(dict, cache::RecoPlan{<:ProcessResultCache})
-  size = cache.maxsize
+function StructUtils.lower(::RecoPlanStyle,
+                           plan::RecoPlan{T}) where {T<:ProcessResultCache}
+  dict = Dict{String, Any}(
+    MODULE_TAG => string(parentmodule(T)),
+    TYPE_TAG => "RecoPlan{ProcessResultCache}"
+  )
+
+  size = plan.maxsize
   if !ismissing(size)
     dict["maxsize"] = size
   end
-  dict["param"] = toDictValue(type(cache, :param), cache.param)
+
+  param = plan.param
+  if !ismissing(param)
+    dict["param"] = StructUtils.lower(PLAN_STYLE[], plan.param)
+  end
+  return dict
 end
+
 
 # When deserializing always construct cache and lock
 # This means that all algorithms constructed by this plan share lock and cache
-function loadPlan!(plan::RecoPlan{<:ProcessResultCache}, dict::Dict{String, Any}, modDict)
+function StructUtils.make!(style::RecoPlanStyle,
+                           plan::RecoPlan{T},
+                           dict::Dict{String, Any}) where {T<:ProcessResultCache}
   maxsize = get(dict, "maxsize", 1)
+
   cache = LRU{UInt64, Any}(;maxsize)
+  
   param = missing
   if haskey(dict, "param")
-    param = loadPlan!(dict["param"], modDict)
-    parent!(param, plan)
+      param_dict = dict["param"]
+      param, _ = StructUtils.make(style, RecoPlan, param_dict)
+      parent!(param, plan)
   end
+
   setproperty!(plan, :maxsize, maxsize)
   setproperty!(plan, :cache, cache)
   setproperty!(plan, :param, param)
@@ -130,18 +161,6 @@ function Base.resize!(cache::ProcessResultCache, n)
   cache.maxsize = n
   resize!(cache.cache; maxsize = n)
   return cache
-end
-"""
-    hash(parameter::AbstractImageReconstructionParameters, h)
-
-Default hash function for image reconstruction paramters. Uses `nameof` the parameter and all fields not starting with `_` to compute the hash.
-"""
-function Base.hash(parameter::T, h::UInt64) where T <: AbstractImageReconstructionParameters
-  h = hash(nameof(T), h)
-  for field in filter(f -> !startswith(string(f), "_"), fieldnames(T))
-    h = hash(hash(getproperty(parameter, field)), h)
-  end
-  return h
 end
 function Base.hash(parameter::ProcessResultCache, h::UInt64)
   return hash(typeof(parameter), hash(parameter.maxsize, hash(parameter.param, h)))

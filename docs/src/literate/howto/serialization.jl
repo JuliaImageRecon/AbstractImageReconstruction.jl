@@ -4,86 +4,165 @@ include("../../literate/example/example_include_all.jl") #hide
 # As was shown in the example, a `RecoPlan` `AbstractImageReconstruction` can be used to easily parametrize reconstruction algorithms or provide a template structure. 
 # Serializing and deserializing a plan can therefore be used to provide templates of algorithms as well as storing a fully parametrized algorithm to reproduce a reconstruction later on.
 # The main goal of serialization is not to store and restore the concrete binary representation of the algorithm, but to store the parameters and the structure of the algorithm.
-# Changes to parameters or algorithms internals could thus still be supported by a deserialized plan, as long as the keyword arguments of the constructor are still valid.
+# Changes to parameters or algorithms internals could thus still be supported by a deserialized plan, as long as the keyword arguments of the constructor are still valid. 
 
 # !!! warning
-#     Serialization is still in an experimental state and might change in the future. It is intended as a best-effort feature to provide a way to store and load plans.
+#     Serialization is intended as a best-effort feature to provide a way to store and load plans.
 #     Depending on the Julia version, the reconstruction package in question and the complexity of custom structs used in the parameters, serialization might not work as expected.
 
-# `RecoPlans` are serialized as TOML files using the [TOML.jl](https://docs.julialang.org/en/v1/stdlib/TOML/) standard library:
+# `RecoPlans` support serialization to TOML files using the [TOML.jl](https://docs.julialang.org/en/v1/stdlib/TOML/) standard library and the [StructUtils.jl](https://github.com/JuliaServices/StructUtils.jl) package.
+# Let's first create an empty RecoPlan as a template:
 pre = RadonPreprocessingParameters(frames = collect(1:3))
 back_reco = RadonBackprojectionParameters(;angles)
 algo_back = DirectRadonAlgorithm(DirectRadonParameters(pre, back_reco))
 plan = toPlan(algo_back)
 clear!(plan)
-#toTOML(stdout, plan)
 
-# Before serialization as a TOML file, the plan is turned into a nested dictionary using the functions `toDict, toDict!, toDictValue` and `toDictValue!`.
-# The top-level function is `toDict`:
-toDict(plan)
+# We can save the plan to a file:
 
-# This method creates a dictionary and records not only the value of the argument, but also the module and type name among other metadata. This metadata starts with a `_` and is used during deserialization to recreate the correct types.
-# After creating the dictionary, the function `toDict!` is called to add the argument and its metadata to the dictionary.
+# ```julia
+#   savePlan("myplan.toml", plan)
+# ```
 
-# The value-representation of the argument is added to the dictionary using the `toDictValue!` method.
-# The default `toDictValue!` for structs with fields adds each field of the argument as a key-value pair with the value being provided by the `toDictValue` function.
+# Or preview the TOML output:
 
-# While `AbstractImageReconstruction` tries to provide default implementations, multiple dispatch can be used for custom serialization of types.
+io = IOBuffer()
+savePlan(io, plan)
+seekstart(io)
+println(String(take!(io)))
 
-# As an example we will add a new parameter struct for a filtered backprojection process using a given geometry:
+# ## Serialization Structure
+
+# Before serialization as a TOML file, the plan is turned into a nested dictionary using `StructUtils.lower`.
+# The serialization uses a style-based approach, where different styles can customize how types are serialized:
+
+using AbstractImageReconstruction.StructUtils
+style = RecoPlanStyle()
+dict = StructUtils.lower(style, plan)
+
+# This dictionary contains metadata (starting with `_`) used during deserialization to recreate the correct types.
+
+# The metadata includes:
+# - `_module`: The module where the type is defined
+# - `_type`: The type name (for RecoPlan, includes the parametric type)
+
+# ## Custom Serialization with Styles
+
+# `AbstractImageReconstruction` provides a default style for RecoPlans and certain default types.
+# For custom types, you can override the serialization behavior using custom styles.
+
+# As an example, let's add a new parameter struct for a filtered backprojection process using a given geometry:
 export CustomGeomFilteredBackprojectionParameters
-Base.@kwdef struct CustomGeomFilteredBackprojectionParameters{G <: RadonGeometry} <: OurRadonReco.AbstractDirectRadonReconstructionParameters
+@parameter struct CustomGeomFilteredBackprojectionParameters{G <: RadonGeometry} <: OurRadonReco.AbstractDirectRadonReconstructionParameters
   angles::Vector{Float64}
   filter::Union{Nothing, Vector{Float64}} = nothing
   geometry::G
 end
-function AbstractImageReconstruction.process(::Type{<:AbstractDirectRadonAlgorithm}, params::CustomGeomFilteredBackprojectionParameters, data::AbstractArray{T, 3}) where {T}
+function (params::CustomGeomFilteredBackprojectionParameters)(::Type{<:AbstractDirectRadonAlgorithm}, data::AbstractArray{T, 3}) where {T}
   return RadonKA.backproject_filtered(data, params.angles; filter = params.filter, geometry = params.geometry)
 end
 
 # First we will take a look at the default serialization:
 reco = RecoPlan(CustomGeomFilteredBackprojectionParameters; angles = [0.0], 
         geometry = RadonFlexibleCircle(size(sinograms, 1), [0.0, 0.0], [1.0, 1.0]))
-toTOML(stdout, reco)
+try
+  io = IOBuffer()
+  savePlan(io, reco)
+  seekstart(io)
+  println(String(take!(io)))
+catch ex
+  @error ex
+end
 
-# In this case the default seems to work, but we can also provide a custom serialization for the geometry. This is especially helpful for custom types that contain large amounts of data, which we don't want to serialize.
-# An example of this could be a file with meeasurement data, where we just want to store the file path and not the whole data.
+# In this case the default didn't work, because a RadonFlexibleCircle is not a data type supported by TOML.
+# We need to provide a custom serialization for the geometry. This is especially helpful for:
+# - Custom types with large amounts of data
+# - Types that should store only essential information (e.g., file paths instead of full data)
 
-# We want to serialize the geometry as a custom dictionary. For that we first need to override the default `toDictValue` method for the geometry: 
-AbstractImageReconstruction.toDictValue(value::RadonGeometry) = toDict(value)
+# ## Creating a Custom Style
+
+# To customize serialization, we create a custom style and override the `StructUtils.lower` and `StructUtils.lift` methods:
+# First, define a custom style that inherits from `CustomPlanStyle`:
+
+struct MyRadonStyle <: CustomPlanStyle end
+
+# This a style provided by AbstractImageReconstruction, which has a fallback to the usual RecoPlanStyle.
+
+# We want to serialize the geometry as a custom dictionary. For that we first need to override the default `lower` method for the geometry: 
+function StructUtils.lower(::MyRadonStyle, value::RadonFlexibleCircle)
+  return Dict{String, Any}(
+    "N" => value.N,
+    "in" => value.in_height,
+    "out" => value.out_height,
+  )
+end
 
 # This method is called when the fields for the `CustomGeomFilteredBackprojectionParameters` are serialized.
+# Now we can serialize using our custom style:
+io = IOBuffer()
+savePlan(io, reco, field_style=MyRadonStyle())
+seekstart(io)
+println(String(take!(io)))
 
-# Now that we create a custom dict representation, we can override the behaviour after the metadata is recorded. For that we specialize the `toDictValue!` method:
-function AbstractImageReconstruction.toDictValue!(dict, value::RadonFlexibleCircle)
-  dict["in"] = value.in_height
-  dict["out"] =  value.out_height
-  dict["N"] = value.N
+# ## Custom Deserialization
+
+# We also need to define how to deserialize our custom representation.
+# This is done by overriding the `StructUtils.lift` method:
+
+function StructUtils.lift(::MyRadonStyle, ::Type{<:RadonFlexibleCircle}, source::AbstractDict)
+  return RadonFlexibleCircle(source["N"], source["in"], source["out"]), source
 end
 
-# This results in our custom serialization:
-toTOML(stdout, reco)
-
-# We also need to create the corresponding deserialization functions. This is done by defining a `fromTOML` method for the type.
-# Since we defined our value to be represented as a dictionary, we will need to construct our type from a dictionary:
-function AbstractImageReconstruction.fromTOML(::Type{<:RadonGeometry}, dict::Dict{String, Any})
-  return RadonFlexibleCircle(dict["N"], dict["in"], dict["out"])
+# Two things of note with this method. According to the StructUtils interface, the lift method returns a tuple with the return value and any side-effects.
+# In usual serialization settings for AbstractImageReconstruction, this can be ignored/set to the provided source.
+# Secondly our parameter is actually more generic than just the flexible circle. This means we need to record more metadata to support lifting of the correct type:
+function StructUtils.lower(::MyRadonStyle, value::RadonFlexibleCircle)
+  return Dict{String, Any}(
+    "N" => value.N,
+    "in" => value.in_height,
+    "out" => value.out_height,
+    "_type" => "RadonFlexibleCircle",
+    "_module" => string(parentmodule(typeof(value)))
+  )
 end
+# Here we followed the convetion from AbstractImageReconstruction, which stores `_module` and `_type` for the `RecoPlans`.
+# Using that information, we can now define a lift method for the generic RadonGeometry:
+function StructUtils.lift(::MyRadonStyle, ::Type{RadonGeometry}, dict::AbstractDict)
+  if haskey(dict, "_type") && dict["_type"] == "RadonFlexibleCircle"
+    return StructUtils.lift(MyRadonStyle(), RadonFlexibleCircle, dict)
+  end
+  return first(StructUtils.lift(RecoPlanStyle(), RadonGeometry, dict)), dict
+end
+# In the aboive variant, we hardcoded the string to type conversion. AbstractImageReconstruction can also be supplied with modules which can be used
+# during deserialization to go from strings to types. For that we can access the scoped value MODULE_DICT inside the lift function:
+function StructUtils.lift(::MyRadonStyle, ::Type{RadonGeometry}, dict::AbstractDict)
+  type = MODULE_DICT[dict["_module"], dict["_type"]]
+  return first(StructUtils.lift(MyRadonStyle(), type, dict)), dict
+end
+# We need to supply modules during deserialization to populate this dictionary.
 
-# Finally, we can do a round-trip test to see if our serialization and deserialization works:
-#md # ```julia
-#md # io = IOBuffer()
-#md # toTOML(io, reco)
-#md # seekstart(io)
-#md # recoCopy = loadPlan(io, [Main, OurRadonReco, RadonKA])
-#md # toTOML(stdout, recoCopy)
-#md # ```
-io = IOBuffer() #jl
-toTOML(io, reco) #jl
-seekstart(io) #jl
-recoCopy = loadPlan(io, [Main, OurRadonReco, RadonKA]) #jl
-toTOML(stdout, recoCopy) #jl
+# ## Round-Trip Test
+
+# Finally, we can test that our custom serialization works correctly:
+
+# First, let's print `reco again`:
+reco
+
+# Afterwards, we can save and load a plan from an IO buffer:
+
+io = IOBuffer()
+savePlan(io, reco, field_style=MyRadonStyle())
+seekstart(io)
+recoCopy = loadPlan(io, [parentmodule(CustomGeomFilteredBackprojectionParameters), OurRadonReco, RadonKA], field_style=MyRadonStyle())
 
 
-# For deserialization we need to provide the module where the type is defined. This is necessary to "find" the correct type during deserialization that allows for the dispatch to the correct `fromTOML` method.
-# Generally, this module selection can be done by the reconstruction package developer, though it is also possible for the user to add modules since they can easily extend algorithms with new processing steps.
+
+# For deserialization, we needed to provide the modules where the types are defined. The module dict used within our lift method is populated from these modules.
+
+# This allows the deserializer to "find" the correct types and dispatch to the appropriate `StructUtils.lift` methods.
+
+# The module list should include:
+# - Package modules with reconstruction types (e.g., `OurRadonReco`, `RadonKA`)
+# - Any custom package modules you've used which contain types using as parameter inputs
+
+# For a more user-friendly system that automatically tracks and discovers modules, see the Plan Storage and Usability How-To.

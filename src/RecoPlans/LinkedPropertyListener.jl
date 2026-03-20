@@ -32,27 +32,44 @@ end
 (listener::LinkedPropertyListener)(val) = listener.active = false
 
 
-function toDictValue!(dict, value::LinkedPropertyListener)
+function StructUtils.lower(::RecoPlanStyle, value::LinkedPropertyListener)
+  T = typeof(value)
+  dict = Dict{String, Any}(
+    MODULE_TAG => string(parentmodule(T)),
+    TYPE_TAG => string(getfield(parentmodule(T), nameof(T)))
+  )
+  # Path from root to the source plan, as strings
   dict["plan"] = string.(parentproperties(value.plan))
+  # Source field
   dict["field"] = string(value.field)
-  dict["fn"] = toDict(value.fn)
+  # Function: use existing Function lowering (MODULE_TAG/TYPE_TAG)
+  dict["fn"] = StructUtils.lower(RecoPlanStyle(), value.fn)
+  return dict
 end
 
-function loadListener!(::Type{LinkedPropertyListener}, target::RecoPlan, targetProp, dict, modDict)
+function loadListener!(::Type{LinkedPropertyListener}, target::RecoPlan, targetProp, dict::Dict{String, Any})
+
   # Find the root plan
   root = parent(target)
   while !isnothing(parent(root))
-    root = parent(root)
+      root = parent(root)
   end
 
-  # From the root plan, find the source plan
+  # Walk the recorded path to find the source plan
   source = root
-  for param in dict["plan"][1:end]
-    source = getproperty(source, Symbol(param))
+  for name_str in dict["plan"]
+      source = getproperty(source, Symbol(name_str))
   end
   sourceProp = Symbol(dict["field"])
 
-  # Retrieve the function
-  fn = tomlType(dict["fn"], modDict)
+  # Reconstruct the function from MODULE_TAG/TYPE_TAG
+  fn_dict = dict["fn"]
+  mod_str  = fn_dict[MODULE_TAG]
+  type_str = fn_dict[TYPE_TAG]
+  fn = MODULE_DICT[mod_str, type_str]
+  if fn === nothing
+      error("Could not resolve function $(type_str) from module $(mod_str) " *
+            "when loading LinkedPropertyListener")
+  end
   return LinkedPropertyListener(fn, target, targetProp, source, sourceProp)
 end

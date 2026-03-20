@@ -2,7 +2,7 @@ include("../../literate/example/example_include_all.jl") #hide
 
 # # Observables
 # Observables from [Observables.jl](https://github.com/JuliaGizmos/Observables.jl) are containers which can invoke callbacks whenever their stored value is changed.
-# Each property of a `RecoPlan` is an `Òbservable` to which functions can be attached. These function listen to changes of the Observables value.
+# Each property of a `RecoPlan` is an `Observable` to which functions can be attached. These function listen to changes of the Observables value.
 # This can be used to store "logic" about the parameter within a plan, such as a function to update and visualize the current state of a plan or to calculate default values whenever a parameter changes.
 
 # In this documentation we will focus on the interaction between `RecoPlans` and `Observables`. For more details on the `Observables` API we refer to the [package](https://juliagizmos.github.io/Observables.jl/stable/) and [Makie](https://docs.makie.org/stable/explanations/observables) documentation.
@@ -57,7 +57,7 @@ defaultAverages(val) = length(val)
 LinkedPropertyListener(defaultAverages, plan.parameter.pre, :numAverages, plan.parameter.pre, :frames)
 plan.parameter.pre.frames = collect(1:42)
 @info plan.parameter.pre.numAverages == 42
-toTOML(stdout, plan)
+savePlan(stdout, plan)
 
 # To serialize custom listener one can inherit from `AbstractPlanListener` and follow the serialization How-To to implement the serialization.
 # Listener are deserialized after the plan is built and the parameters are set. This means that the listener can access the parameters of the plan and the plan itself.

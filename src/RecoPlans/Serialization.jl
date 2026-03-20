@@ -1,184 +1,398 @@
+export MODULE_TAG, TYPE_TAG
+const MODULE_TAG = "_module"
+const TYPE_TAG = "_type"
+const VALUE_TAG = "_value"
+const UNION_TYPE_TAG = "_uniontype"
+const UNION_MODULE_TAG = "_unionmodule"
+
+struct ModuleDict
+  dict::Dict{String, Dict{String, Union{DataType, UnionAll, Function}}}
+  ModuleDict(mod::Module) = ModuleDict([mod])
+  function ModuleDict(modules::Vector{Module})
+    if !(in(Core, modules))
+      push!(modules, Core)
+    end
+    if !(in(Base, modules))
+      push!(modules, Base)
+    end
+
+    modDict = Dict{String, Dict{String, Union{DataType, UnionAll, Function}}}()
+    for mod in modules
+      typeDict = Dict{String, Union{DataType, UnionAll, Function}}()
+      for field in names(mod)
+        try
+          t = getfield(mod, field)
+          if t isa DataType || t isa UnionAll || t isa Function
+            typeDict[string(field)] = t
+          end
+        catch
+        end
+      end
+      modDict[string(mod)] = typeDict
+    end
+    return new(modDict)
+  end
+end
+function getindex(modDict::ModuleDict, mod::String, type::String)
+  if haskey(modDict.dict, mod)
+    moduleTypes = modDict.dict[mod]
+    if haskey(moduleTypes, type)
+      return moduleTypes[type]
+    end
+  end
+  return nothing
+end
+
+export MODULE_DICT
+const MODULE_DICT = ScopedValue{Union{Nothing, ModuleDict}}(nothing)
+getindex(modDict::ScopedValue{Union{Nothing, ModuleDict}}, mod::String, type::String) = modDict[][mod, type]
+getindex(modDict::ScopedValue{Union{Nothing, ModuleDict}}, mod, type) = modDict[string(mod), string(type)] 
+
+export RecoPlanStyle
+export CustomPlanStyle
+"""
+    RecoPlanStyle
+
+Style for serializing `RecoPlan` and related types using `StructUtils`.
+
+This style customizes the serialization and deserialization of reconstruction plans,
+parameters, and algorithms. It uses `StructUtils.lower` for serialization and
+`StructUtils.lift` for deserialization, with special handling for metadata preservation.
+
+## Serialization (lower)
+
+The `StructUtils.lower` method for `RecoPlanStyle`:
+- For `RecoPlan`s: stores `_module`, `_type` tags and serializes nested plans
+- For parameters/algorithms: applies default `StructUtils.lower` from `FIELD_STYLE`
+- Custom types can be handled by defining `StructUtils.lower(::RecoPlanStyle, ::Type{T})`
+- Array elements are recursively lowered
+
+## Deserialization (lift/make)
+
+Deserialization has two layers:
+1. **`lift`**: Converts TOML values back to Julia types
+   - Used for simple types: `Symbol`, `Enum`, `AbstractArray`, `Type`, `Complex`
+   - Union types handled by `deserializeUnion` which tries each member
+   - Users can define custom `StructUtils.lift(::RecoPlanStyle, ::Type{T}, source)`
+2. **`make/make!`**: Reconstructs `RecoPlan` instances
+   - Only needed when the plan structure itself must be customized
+   - `make` creates the plan, `make!` fills in properties
+
+## Customization
+
+Users can customize serialization by:
+
+1. Defining `StructUtils.lower` for specific types:
+   ```julia
+   StructUtils.lower(::RecoPlanStyle, x::MyType) = Dict("special" => x.value)
+   ```
+
+2. Defining `StructUtils.lift` for specific types:
+   ```julia
+   StructUtils.lift(::RecoPlanStyle, ::Type{MyType}, dict) = MyType(dict["special"]), dict
+   ```
+
+3. Defining custom plan styles extending `CustomPlanStyle`:
+   ```julia
+   struct MyStyle <: CustomPlanStyle end
+   StructUtils.lower(::MyStyle, x) = StructUtils.lower(RecoPlanStyle(), x)
+   ```
+   Styles based on `CustomPlanStyle` default to `RecoPlanStyle`.
+
+## Plan Levels
+
+The serialization system supports two levels of style customization:
+
+- **`plan_style`**: Controls how plans are built and which style's `make/make!` methods are used
+- **`field_style`**: Controls how field values (parameters, algorithms) are serialized/deserialized
+
+These are passed to `savePlan` and `loadPlan`:
+
+```julia
+savePlan(io, plan; plan_style=MyPlanStyle(), field_style=MyFieldStyle())
+loaded = loadPlan(io, modules; plan_style=MyPlanStyle(), field_style=MyFieldStyle())
+```
+
+## Example
+
+```julia
+plan = toPlan(algo)
+savePlan("myplan.toml", plan)
+loaded = loadPlan("myplan.toml", [MyModule, OtherModule])
+```
+"""
+struct RecoPlanStyle <: StructUtils.StructStyle end
+const PLAN_STYLE = ScopedValue{StructUtils.StructStyle}(RecoPlanStyle())
+const FIELD_STYLE = ScopedValue{StructUtils.StructStyle}(RecoPlanStyle())
+StructUtils.dictlike(::Type{RecoPlan}) = true
+
+"""
+    CustomPlanStyle
+
+Abstract type for custom plan serialization styles.
+
+Subtypes of `CustomPlanStyle` can override `StructUtils.lower`,
+`StructUtils.make!` and `StructUtils.lift` to provide custom serialization and deserialization behavior for specific types.
+
+Use `CustomPlanStyle` when you need different serialization for certain fields
+while keeping the standard plan structure. The default delegation to `RecoPlanStyle`
+is provided for convenience.
+
+## Example
+
+```julia
+struct CustomStyle <: CustomPlanStyle end
+
+StructUtils.lower(::CustomStyle, x::SpecialType) = Dict("custom" => x.data)
+
+loadPlan("plan.toml", modules; field_style=CustomStyle())
+```
+"""
+abstract type CustomPlanStyle <: StructUtils.StructStyle end
+StructUtils.lower(::CustomPlanStyle, x) = StructUtils.lower(RecoPlanStyle(), x)
+
 export savePlan
 """
-    savePlan(file::Union{AbstractString, IO}, plan::RecoPlan)
+    savePlan(file::Union{AbstractString, IO}, plan::RecoPlan; plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
 
 Save the `plan` to the `file` in TOML format.
-See also `loadPlan`, `toTOML`, `toDict`.
-"""
-savePlan(file::Union{AbstractString, IO}, plan::RecoPlan) = toTOML(file, plan)
 
-toDictModule(plan::RecoPlan{T}) where {T} = parentmodule(T)
-toDictType(plan::RecoPlan{T}) where {T} = RecoPlan{getfield(parentmodule(T), nameof(T))}
-"""
-    toDictValue!(dict, plan::RecoPlan)
+## Keywords
 
-Adds the properties of `plan` to `dict` using `toDictValue` for each not missing field. Additionally, adds each listener::AbstractPlanListener to the dict.
+- `plan_style`: Style for plan-level serialization (controls how `RecoPlan` instances are built)
+- `field_style`: Style for field-level serialization (controls how parameter and algorithm fields are serialized)
+
+See also `loadPlan`, `RecoPlanStyle`.
 """
-function toDictValue!(dict, value::RecoPlan)
+function savePlan(filename::String, plan::RecoPlan; kwargs...)
+  open(filename, "w") do io
+      savePlan(io, plan; kwargs...)
+  end
+end
+
+function savePlan(io::IO, plan::RecoPlan; plan_style = RecoPlanStyle(), field_style = RecoPlanStyle())
+  with(PLAN_STYLE => plan_style, FIELD_STYLE => field_style) do
+    dict = StructUtils.lower(RecoPlanStyle(), plan)
+    TOML.print(io, dict)
+  end
+end
+
+function StructUtils.lower(::RecoPlanStyle, plan::RecoPlan{T}) where T
+  dict = Dict{String, Any}(
+    MODULE_TAG => string(parentmodule(T)),
+    TYPE_TAG => "RecoPlan{$(getfield(parentmodule(T), nameof(T)))}"
+  )
+
   listenerDict = Dict{String, Any}()
-  for field in propertynames(value)
-    x = getproperty(value, field)
-    if !ismissing(x)
-      dict[string(field)] = toDictValue(type(value, field), x)
+  for field in propertynames(plan)
+    value = getproperty(plan, field)
+    if !ismissing(value)
+      if value isa RecoPlan
+        dict[string(field)] = StructUtils.lower(PLAN_STYLE[], value)
+      elseif value isa AbstractArray{<:RecoPlan}
+        dict[string(field)] = map(v -> StructUtils.lower(PLAN_STYLE[], v), value)
+      else
+        fieldvalue = StructUtils.lower(FIELD_STYLE[], value)
+        # In case of a union we need to store the union + actual field value:
+        if type(plan, field) isa Union
+          union = Dict{String, Any}()
+          union[VALUE_TAG] = fieldvalue
+          union[UNION_TYPE_TAG] = string(typeof(value))
+          union[UNION_MODULE_TAG] = string(parentmodule(typeof(value)))
+          fieldvalue = union
+        end
+        dict[string(field)] = fieldvalue
+      end
     end
-    listeners = filter(l -> l isa AbstractPlanListener, last.(Observables.listeners(value[field])))
+    listeners = filter(l -> l isa AbstractPlanListener, last.(Observables.listeners(plan[field])))
     if !isempty(listeners)
-      listenerDict[string(field)] = toDictValue(typeof(listeners), listeners)
+      listenerDict[string(field)] = map(l -> StructUtils.lower(PLAN_STYLE[], l), listeners)
     end
   end
 
   if !isempty(listenerDict) 
     dict[LISTENER_TAG] = listenerDict
   end
-  
   return dict
+end
+
+StructUtils.lower(::RecoPlanStyle, x::Module) = string(x)
+StructUtils.lower(::RecoPlanStyle, x::Symbol) = string(x)
+StructUtils.lower(::RecoPlanStyle, x::T) where {T<:Enum} = string(x)
+StructUtils.lower(style::RecoPlanStyle, x::AbstractArray) = map(v -> StructUtils.lower(style, v), x)
+StructUtils.lower(::RecoPlanStyle, x::Nothing) = Dict()
+StructUtils.lower(style::RecoPlanStyle, x::Tuple) = StructUtils.lower(style, collect(x))
+StructUtils.lower(::RecoPlanStyle, value) = value
+StructUtils.lower(::RecoPlanStyle, x::Complex{T}) where T = string(x)
+
+function StructUtils.lower(::RecoPlanStyle, ::Type{T}) where {T}
+  return Dict{String, Any}(
+      MODULE_TAG => string(parentmodule(T)),
+      TYPE_TAG => "Type",
+      VALUE_TAG => string(nameof(T))
+  )
+end
+
+function StructUtils.lower(::RecoPlanStyle, f::Function)
+  return Dict{String, Any}(
+      MODULE_TAG => string(parentmodule(f)),
+      TYPE_TAG => string(nameof(f))
+  )
 end
 
 export loadPlan
 """
-    loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module})
-  
+    loadPlan(filename::Union{AbstractString, IO}, modules::Vector{Module}; plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
+
 Load a `RecoPlan` from a TOML file. The `modules` argument is a vector of modules that contain the types used in the plan.
 After loading the plan, the listeners are attached to the properties using `loadListener!`.
+
+## Keywords
+
+- `plan_style`: Style for plan-level deserialization (controls how `RecoPlan` instances are built)
+- `field_style`: Style for field-level deserialization (controls how parameter and algorithm fields are deserialized)
+
+## Example
+
+```julia
+plan = loadPlan("myplan.toml", [MyModule, OtherModule])
+```
 """
-function loadPlan(filename::String, modules)
+function loadPlan(filename::String, modules; kwargs...)
   open(filename) do io
     return loadPlan(io, modules)
   end
 end
-function loadPlan(filename::IO, modules::Vector{Module})
+function loadPlan(filename::IO, modules::Vector{Module}; plan_style=RecoPlanStyle(), field_style=RecoPlanStyle())
   dict = TOML.parse(filename)
-  modDict = createModuleDataTypeDict(modules)
-  plan = loadPlan!(dict, modDict)
-  loadListeners!(plan, dict, modDict)
+  plan = with(MODULE_DICT => ModuleDict(modules), 
+        PLAN_STYLE => plan_style,
+        FIELD_STYLE => field_style) do
+    plan, _ = StructUtils.make(plan_style, RecoPlan, dict)
+    loadListeners!(plan, dict)
+    return plan
+  end
   return plan
 end
-function createModuleDataTypeDict(modules::Vector{Module})
-  modDict = Dict{String, Dict{String, Union{DataType, UnionAll, Function}}}()
-  for mod in modules
-    typeDict = Dict{String, Union{DataType, UnionAll, Function}}()
-    for field in names(mod)
-      try
-        t = getfield(mod, field)
-        if t isa DataType || t isa UnionAll || t isa Function
-          typeDict[string(field)] = t
-        end
-      catch
-      end
-    end
-    modDict[string(mod)] = typeDict
-  end
-  return modDict
-end
-function loadPlan!(dict::Dict{String, Any}, modDict)
+function StructUtils.make(style::RecoPlanStyle, ::Type{RecoPlan}, dict::Dict{String, Any})
   re = r"RecoPlan\{(.*)\}"
   m = match(re, dict[TYPE_TAG])
   if !isnothing(m)
     type = m.captures[1]
     mod = dict[MODULE_TAG]
-    plan = RecoPlan(modDict[mod][type])
-    loadPlan!(plan, dict, modDict)
-    return plan
+    plan = RecoPlan(MODULE_DICT[mod, type])
+    StructUtils.make!(style, plan, dict)
+    return plan, dict
   else
     # Has to be parameter or algo or broken toml
     # TODO implement
     error("Not implemented yet")
   end
 end
-function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionAlgorithm}
-  temp = loadPlan!(dict["parameter"], modDict)
+function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{String, Any}) where {T<:AbstractImageReconstructionAlgorithm}
+  temp, _ = StructUtils.make(style, RecoPlan, dict["parameter"])
   parent!(temp, plan)
   setproperty!(plan, :parameter, temp)
   return plan
 end
-function loadPlan!(plan::RecoPlan{T}, dict::Dict{String, Any}, modDict) where {T<:AbstractImageReconstructionParameters}
+function StructUtils.make!(style::RecoPlanStyle, plan::RecoPlan{T}, dict::Dict{String, Any}) where {T<:AbstractImageReconstructionParameters}
   for name in propertynames(plan)
     t = type(plan, name)
     param = missing
     key = string(name)
     if haskey(dict, key)
       if t <: AbstractImageReconstructionAlgorithm || t <: AbstractImageReconstructionParameters
-        param = loadPlan!(dict[key], modDict)
+        param, _ = StructUtils.make(style, RecoPlan, dict[key])
         parent!(param, plan)
       elseif t <: Vector{<:AbstractImageReconstructionAlgorithm} || t <: Vector{<:AbstractImageReconstructionParameters}
-        param = map(x-> loadPlan!(x, modDict), dict[key])
+        param = map(x-> first(StructUtils.make(style, RecoPlan, x)), dict[key])
         foreach(p -> parent!(p, plan), param)
+      elseif t isa Union
+        param = deserializeUnion(t, dict[key])
       else
-        param = loadPlanValue(T, name, t, dict[key], modDict)
+        lifted = StructUtils.lift(FIELD_STYLE[], t, dict[key])
+        if !(lifted isa Tuple)
+          @warn "Type $t with style $(FIELD_STYLE[]) did not return a tuple. This is likely caused by an incorrect lift method. Returned value will be used as is"
+          param = lifted
+        else
+          param = first(lifted)
+        end          
       end
     end
+
     setproperty!(plan, name, param)
   end
   return plan
 end
-loadPlanValue(parent::Type{T}, field::Symbol, type, value, modDict) where T <: AbstractImageReconstructionParameters = loadPlanValue(type, value, modDict)
-# Type{<:T} where {T}
-function loadPlanValue(t::UnionAll, value::Dict, modDict)
-  if value[TYPE_TAG] == string(Type)
-    return modDict[value[MODULE_TAG]][value[VALUE_TAG]]
-  else
-    return fromTOML(specializeType(t, value, modDict), value)
-  end
-end
-function loadPlanValue(::Type{Vector{<:T}}, value::Vector{Dict}, modDict) where {T}
-  result = Any[]
-  for val in value
-    type = modDict[val[MODULE_TAG]][val[TYPE_TAG]]
-    push!(result, fromTOML(type, val))
-  end
-  # Narrow vector
-  return identity.(result)
-end
-uniontypes(t::Union) = Base.uniontypes(t)
-#uniontypes(t::Union) = [t.a, uniontypes(t.b)...]
-#uniontypes(t::DataType) = [t]
-function loadPlanValue(t::Union, value::Dict, modDict)
-  types = uniontypes(t)
-  idx = findfirst(x-> string(x) == value[UNION_TYPE_TAG], types)
-  if isnothing(idx)
-    toml = tomlType(value, modDict, prefix = "union")
-    idx = !isnothing(toml) ? findfirst(x-> toml <: x, types) : idx # Potentially check if more than one fits and chose most fitting
-  end
-  type = isnothing(idx) ? t : types[idx]
-  return loadPlanValue(type, value[VALUE_TAG], modDict)
-end
-loadPlanValue(t::DataType, value::Dict, modDict) = fromTOML(specializeType(t, value, modDict), value)
-loadPlanValue(t, value, modDict) = fromTOML(t, value)
 
-function tomlType(dict::Dict, modDict; prefix::String = "")
-  if haskey(dict, "_$(prefix)module") && haskey(dict, "_$(prefix)type")
-    mod = dict["_$(prefix)module"]
-    type = dict["_$(prefix)type"]
-    if haskey(modDict, mod) && haskey(modDict[mod], type)
-      return modDict[mod][type]
+function deserializeUnion(union_type::Union, union_dict)  
+  value_data = union_dict[VALUE_TAG]
+  type_str   = union_dict[UNION_TYPE_TAG]
+  module_str = union_dict[UNION_MODULE_TAG]
+
+  # 1. Try lifting with the union type itself (user may have defined a custom lift)
+  try
+    lifted = StructUtils.lift(FIELD_STYLE[], union_type, value_data)
+    return lifted isa Tuple ? first(lifted) : lifted
+  catch
+    # If this fails, fall through to trying each union member
+  end
+
+  # 2. Try lifting with each union member
+  successes = Tuple{Any,Any}[]  # (member_type, value)
+  for member in Base.uniontypes(union_type)
+    try
+      lifted = StructUtils.lift(FIELD_STYLE[], member, value_data)
+      val = lifted isa Tuple ? first(lifted) : lifted
+      push!(successes, (member, val))
+    catch
+      # This member cannot handle the data; skip
     end
   end
-  return nothing
-end
-function specializeType(t::Union{DataType, UnionAll}, value::Dict, modDict)
-  if isconcretetype(t)
-    return t
+
+  if isempty(successes)
+    error("Could not deserialize union field of type $union_type from stored value $(value_data). " *
+          "Consider defining `StructUtils.lift(::$(FIELD_STYLE[]), ::Type{$union_type}, ...)` " *
+          "or for the individual member types.")
+  elseif length(successes) == 1
+    # Only one member can represent the value -> unambiguous (but not necessarily correct)
+    return successes[1][2]
   end
-  type = tomlType(value, modDict)
-  return !isnothing(type) && type <: t ? type : t 
+
+  # 3. Multiple members succeeded – disambiguate using metadata
+  matches = [(m, v) for (m, v) in successes
+             if string(typeof(v)) == type_str &&
+                string(parentmodule(typeof(v))) == module_str]
+
+  if length(matches) == 1
+    # Exactly one result matches the stored type metadata
+    return matches[1][2]
+  elseif isempty(matches)
+    error("Ambiguous union deserialization for type $union_type: multiple union members " *
+          "can represent the stored value $(value_data). Define a more specific `StructUtils.lift` for this union field.")
+  else
+    error("Ambiguous union deserialization for type $union_type: multiple candidates " *
+          "produce values whose type matches the stored metadata $module_str.$type_str. " *
+          "Define a more specific `StructUtils.lift` for this union.")
+  end
 end
 
-loadListeners!(plan, dict, modDict) = loadListeners!(plan, plan, dict, modDict)
-function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionAlgorithm}
-  loadListeners!(root, plan.parameter, dict["parameter"], modDict)
+loadListeners!(plan, dict) = loadListeners!(plan, plan, dict)
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict) where {T<:AbstractImageReconstructionAlgorithm}
+  loadListeners!(root, plan.parameter, dict["parameter"])
 end
-function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict, modDict) where {T<:AbstractImageReconstructionParameters}
+function loadListeners!(root::RecoPlan, plan::RecoPlan{T}, dict) where {T<:AbstractImageReconstructionParameters}
   if haskey(dict, LISTENER_TAG)
     for (property, listenerDicts) in dict[LISTENER_TAG]
       for listenerDict in listenerDicts
-        loadListener!(plan, Symbol(property), listenerDict, modDict)
+        loadListener!(plan, Symbol(property), listenerDict)
       end
     end
   end
   for property in propertynames(plan)
     value = getproperty(plan, property)
     if value isa RecoPlan
-      loadListeners!(root, value, dict[string(property)], modDict)
+      loadListeners!(root, value, dict[string(property)])
     end
   end
 end
@@ -188,16 +402,31 @@ export loadListener
 
 Load a listener from `dict` and attach it to property `name` of `plan`
 """
-function loadListener!(plan, name::Symbol, dict, modDict)
-  type = tomlType(dict, modDict)
-  return loadListener!(type, plan, name, dict, modDict)
+function loadListener!(plan, name::Symbol, dict)
+  type = MODULE_DICT[dict[MODULE_TAG], dict[TYPE_TAG]]
+  return loadListener!(type, plan, name, dict)
 end
 
-fromTOML(t, x) = x
-function fromTOML(::Type{Nothing}, x::Dict) #where {T}
-  if isempty(x)
-    return nothing
+
+
+StructUtils.lift(::RecoPlanStyle, ::Type{T}, source) where T = convert(T, source), source
+StructUtils.lift(::RecoPlanStyle, ::Type{Symbol}, source::AbstractString) = Symbol(source), source
+function StructUtils.lift(::RecoPlanStyle, ::Type{T}, source::AbstractString) where {T<:Enum}
+  sym = Symbol(source)
+  for (k, v) in Base.Enums.namemap(T)
+      v === sym && return T(k), source
   end
-  error("Unexpected value $x for Nothing, expected empty Dict")
+  error("Unexpected value $source for enum $(T), expected value in $(Base.Enums.namemap(T))")
 end
-fromTOML(::Type{V}, x::Vector) where {T, V<:Vector{<:T}} = fromTOML.(T, x)
+StructUtils.lift(style::RecoPlanStyle, ::Type{<:AbstractArray{T}}, source) where T = map(v -> first(StructUtils.lift(style, T, v)), source), source
+function StructUtils.lift(::RecoPlanStyle, T::Type{<:Type}, source::Dict)
+  return MODULE_DICT[source[MODULE_TAG], source[VALUE_TAG]], source
+end
+function StructUtils.lift(::RecoPlanStyle, ::Type{Nothing}, source::Dict) 
+  if isempty(source)
+    return nothing, source
+  end
+  error("Unexpected value $source for Nothing, expected empty Dict")
+end
+StructUtils.lift(style::RecoPlanStyle, ::Type{NTuple{N, T}}, source) where {N,T} = Tuple(map(v -> first(StructUtils.lift(style, T, v)), source)), source
+StructUtils.lift(::RecoPlanStyle, ::Type{Complex{T}}, source) where T = string(x), source

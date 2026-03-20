@@ -16,11 +16,11 @@ include("../../literate/example/example_include_all.jl") #hide
 # The cache itself is connected to a `RecoPlan` and any instances build from the same plan instance share this cache and can reuse the result of the processing step.
 
 # Let's implement the `ProcessResultCache` type for the Radon preprocessing step. We first define a struct a very costly preprocessing step:
-Base.@kwdef struct CostlyPreprocessingParameters <: AbstractRadonPreprocessingParameters
+@parameter struct CostlyPreprocessingParameters <: AbstractRadonPreprocessingParameters
   frames::Vector{Int64} = []
   runtime::Float64 = 1.0
 end
-function AbstractImageReconstruction.process(::Type{<:AbstractRadonAlgorithm}, params::CostlyPreprocessingParameters, data::AbstractArray{T, 4}) where {T}
+function (params::CostlyPreprocessingParameters)(::Type{<:AbstractRadonAlgorithm}, data::AbstractArray{T, 4}) where {T}
   frames = isempty(params.frames) ? (1:size(data, 4)) : params.frames
   data = data[:, :, :, frames]
   @info "Very costly preprocessing step"
@@ -29,20 +29,20 @@ function AbstractImageReconstruction.process(::Type{<:AbstractRadonAlgorithm}, p
 end
 
 # Now we can define a processing step that internally uses another processing step. We allow this inner parameter to be cached by considering the following `Union`:
-Base.@kwdef struct RadonCachedPreprocessingParameters{P <: AbstractRadonPreprocessingParameters, PU <: AbstractUtilityReconstructionParameters{P}} <: AbstractRadonPreprocessingParameters
+@parameter struct RadonCachedPreprocessingParameters{P <: AbstractRadonPreprocessingParameters, PU <: AbstractUtilityReconstructionParameters{P}} <: AbstractRadonPreprocessingParameters
   params::Union{P, PU}
 end
-# Note that this case is a bit artifical and a more sensible place would be the algorithm parameters themselves. However, for the case of simplicity we did not introduce the concept in the example.
-# In this artifical case we just pass the parameters to the processing step. A real implementation might do some more processing with the result of the inner processing step:
-AbstractImageReconstruction.process(algoT::Type{<:AbstractRadonAlgorithm}, params::RadonCachedPreprocessingParameters, args...) = process(algoT, params.params, args...)
+# Note that this case is a bit artificial and a more sensible place would be the algorithm parameters themselves. However, for the case of simplicity we did not introduce the concept in the example.
+# In this artificial case we just pass the parameters to the processing step. A real implementation might do some more processing with the result of the inner processing step:
+(params::RadonCachedPreprocessingParameters)(algoT::Type{<:AbstractRadonAlgorithm}, args...) = params.params(algoT, args...)
 
-# We deliberaly implement the `process` function for algorithm type to avoid our cache being invalided by state changes of an algoritm instance.
+# We deliberately implement the callable method for the algorithm type to avoid our cache being invalided by state changes of an algorithm instance.
 
 # Now we construct a plan for a direct reconstruction algorithm that uses the costly preprocessing step:
 pre = CostlyPreprocessingParameters(; frames = collect(1:3), runtime = 1.0)
 preCached = RadonCachedPreprocessingParameters(ProcessResultCache(pre, maxsize = 2))
 prePlan = toPlan(preCached)
-recoPlan = RecoPlan(IterativeRadonReconstructionParameters; angles = angles, shape = size(images)[1:3],
+recoPlan = RecoPlan(IterativeRadonReconstructionParameters; eltype = eltype(sinograms), angles = angles, shape = size(images)[1:3],
             iterations = 10, reg = [L2Regularization(0.001), PositiveRegularization()], solver = CGNR)
 params = RecoPlan(IterativeRadonParameters; pre = prePlan, reco = recoPlan)
 plan = RecoPlan(IterativeRadonAlgorithm; parameter = params)
@@ -68,7 +68,7 @@ reconstruct(algo, sinograms);
 
 # Caches support serialization like other `RecoPlans`:
 clear!(plan)
-toTOML(stdout, plan)
+savePlan(stdout, plan)
 
 # Caches can also be resized. You can either set the maxsize property of the RecoPlan or use `resize!` on the `ProcessResultCache`. Resizing a cache affects all algorithms build from the same plan.
 setAll!(plan, :maxsize, 0)

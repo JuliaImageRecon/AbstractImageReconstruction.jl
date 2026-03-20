@@ -1,41 +1,26 @@
 @testset "Caching" begin
-  Base.@kwdef mutable struct CacheableParameter <: AbstractImageReconstructionParameters
+  @parameter mutable struct CacheableParameter <: AbstractImageReconstructionParameters
     factor::Int64
     cache_misses::Ref{Int64}
   end
-  Base.@kwdef mutable struct PureCacheableParameter <: AbstractImageReconstructionParameters
+  @parameter mutable struct PureCacheableParameter <: AbstractImageReconstructionParameters
     factor::Int64
     cache_misses::Ref{Int64}
-  end
-  mutable struct CacheableAlgorithm{P} <: AbstractImageReconstructionAlgorithm
-    const parameter::Union{P, ProcessResultCache{P}}
-    value::Int64
-    output::Channel{Int64}
-    CacheableAlgorithm(parameter::ProcessResultCache{P}) where P = new{P}(parameter, 1, Channel{Int64}(Inf))
-    CacheableAlgorithm(parameter::P) where P = new{P}(parameter, 1, Channel{Int64}(Inf))
-  end
-  AbstractImageReconstruction.parameter(algo::CacheableAlgorithm) = algo.parameter
-  Base.lock(algo::CacheableAlgorithm) = lock(algo.output)
-  Base.unlock(algo::CacheableAlgorithm) = unlock(algo.output)
-  Base.take!(algo::CacheableAlgorithm) = Base.take!(algo.output)
-  function Base.put!(algo::CacheableAlgorithm, value) 
-    lock(algo) do
-      put!(algo.output, process(algo, algo.parameter, value))
-    end
-  end
-  # Implement proper hashing for algorithm, otherwise hash will ignore changes to value
-  function Base.hash(algo::CacheableAlgorithm, h::UInt64)
-    return hash(typeof(algo), hash(algo.output, hash(algo.value, hash(algo.parameter, h))))
   end
 
-  function AbstractImageReconstruction.process(algo::CacheableAlgorithm, parameter::CacheableParameter, value)
+  @reconstruction mutable struct CacheableAlgorithm{P} <: AbstractImageReconstructionAlgorithm
+    @parameter parameter::Union{P, ProcessResultCache{P}}
+    value::Int64 = 1
+  end
+
+  function (parameter::CacheableParameter)(algo::CacheableAlgorithm, value)
     parameter.cache_misses[] += 1
     return algo.value + parameter.factor * value
   end
-  function AbstractImageReconstruction.process(algo::CacheableAlgorithm, parameter::Union{PureCacheableParameter, ProcessResultCache{PureCacheableParameter}}, value)
-    return algo.value + process(typeof(algo), parameter, value)
+  function (parameter::Union{PureCacheableParameter, ProcessResultCache{PureCacheableParameter}})(algo::CacheableAlgorithm, value)
+    return algo.value + parameter(typeof(algo), value)
   end
-  function AbstractImageReconstruction.process(algo, parameter::PureCacheableParameter, value)
+  function (parameter::PureCacheableParameter)(algo, value)
     parameter.cache_misses[] += 1
     return parameter.factor * value
   end
@@ -52,15 +37,15 @@
     @test cache2.cache.maxsize == cache3.cache.maxsize
   end
 
-  @testset "Stateful Process" begin
-    uncached_parameter = CacheableParameter(3, Ref(0))    
-    algo = CacheableAlgorithm(uncached_parameter)
+   @testset "Stateful Process" begin
+     uncached_parameter = CacheableParameter(3, Ref(0))    
+     algo = CacheableAlgorithm(uncached_parameter)
 
-    cache_misses = Ref(0)
-    cached_parameter = CacheableParameter(3, cache_misses)
-    cache = ProcessResultCache(; param = cached_parameter, maxsize = 1)
-    cached_algo = CacheableAlgorithm(cache)
-    # Inital reco misses cache
+     cache_misses = Ref(0)
+     cached_parameter = CacheableParameter(3, cache_misses)
+     cache = ProcessResultCache(; param = cached_parameter, maxsize = 1)
+     cached_algo = CacheableAlgorithm(cache)
+     # Initial reco misses cache
     @test reconstruct(algo, 42) == reconstruct(cached_algo, 42)
     @test cache_misses[] == 1
     cache_misses[] = 0
@@ -178,11 +163,11 @@
     setAll!(plan, :maxsize, 3)
     @test plan.cache.maxsize == 3
 
-    process(CacheableAlgorithm, cache, 42)
+    cache(CacheableAlgorithm, 42)
     @test length(keys(cache.cache)) == 1
     empty!(cache)
     @test length(keys(cache.cache)) == 0
-    process(CacheableAlgorithm, cache, 42)
+    cache(CacheableAlgorithm, 42)
     @test plan.cache == cache.cache
     @test length(keys(cache.cache)) == 1
     empty!(plan)
@@ -190,7 +175,7 @@
 
     clear!(plan)
     io = IOBuffer()
-    toTOML(io, plan)
+    savePlan(io, plan)
     seekstart(io)
     planCopy = loadPlan(io, [Main, AbstractImageReconstruction])
 
@@ -202,6 +187,55 @@
     resize!(copy1, 42)
 
     @test copy2.cache.maxsize == 42
+  end
+
+
+  @testset "Hashing" begin
+    # Algorithm hash:
+    #  - depends on parameter and state fields (e.g. `value`)
+    #  - does NOT depend on internal fields starting with "_" (e.g. `_channel`)
+
+    param = CacheableParameter(3, Ref(0))
+    algo1 = CacheableAlgorithm(param)
+    algo2 = CacheableAlgorithm(param)
+
+    # Different instances -> different channels
+    @test algo1 !== algo2
+    @test algo1._channel !== algo2._channel
+    @test hash(algo1) == hash(algo2)
+
+    # Changing a state field (`value`) changes the hash
+    h_before = hash(algo1)
+    algo1.value += 1
+    @test hash(algo1) != h_before
+
+    @parameter mutable struct HashParam <: AbstractImageReconstructionParameters
+      a::Int
+      _b::Int
+    end
+    p = HashParam(1, 2)
+    h_param = hash(p)
+    p._b = 42
+    @test hash(p) == h_param
+    p.a = 7
+    @test hash(p) != h_param
+
+    # Falls back to objectid based hash
+    @parameter hash = false mutable struct NoHashParam <: AbstractImageReconstructionParameters
+      a::Int64 = 42
+    end
+    p = NoHashParam()
+    p2 = NoHashParam()
+    @test hash(p) != hash(p2)
+
+    @reconstruction hash = false mutable struct NoHashAlgorithm{P} <: AbstractImageReconstructionAlgorithm
+      @parameter parameter::Union{P, ProcessResultCache{P}}
+      value::Int64 = 1
+    end
+    algo = NoHashAlgorithm(p)
+    algo2 = NoHashAlgorithm(p)
+    #@test hash(algo) != hash(algo2)
+
   end
 
 end

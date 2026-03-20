@@ -38,8 +38,7 @@ foo(val) = length(val) % 2 == 0 ? 15 : 10
     # Connect across parameters
     list = LinkedPropertyListener(foo, plan.parameter.reco, :iterations, plan.parameter.pre, :frames)
     io = IOBuffer()
-    toTOML(io, plan)
-
+    savePlan(io, plan)
     seekstart(io)
     plan_copy = loadPlan(io, [Main, AbstractImageReconstruction, OurRadonReco])
     
