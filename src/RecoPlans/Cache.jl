@@ -162,18 +162,6 @@ function Base.resize!(cache::ProcessResultCache, n)
   resize!(cache.cache; maxsize = n)
   return cache
 end
-"""
-    hash(parameter::AbstractImageReconstructionParameters, h)
-
-Default hash function for image reconstruction parameters. Uses `nameof` the parameter and all fields not starting with `_` to compute the hash.
-"""
-function Base.hash(parameter::T, h::UInt64) where T <: AbstractImageReconstructionParameters
-  h = hash(nameof(T), h)
-  for field in filter(f -> !startswith(string(f), "_"), fieldnames(T))
-    h = hash(hash(getproperty(parameter, field)), h)
-  end
-  return h
-end
 function Base.hash(parameter::ProcessResultCache, h::UInt64)
   return hash(typeof(parameter), hash(parameter.maxsize, hash(parameter.param, h)))
 end

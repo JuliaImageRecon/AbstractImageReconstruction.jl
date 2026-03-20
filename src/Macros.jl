@@ -50,7 +50,6 @@ function kw(spec::FieldSpec)
   return spec.default === notspecified ? spec.name : Expr(:kw, spec.name, spec.default)
 end
 
-# Macro constructor
 export @reconstruction
 """
     ReconstructionSpec
@@ -66,7 +65,68 @@ struct ReconstructionSpec
   init_hook::Union{Expr, Nothing}
 end
 
-function define_algorithm(spec::ReconstructionSpec, generate_constructor::Bool=true)
+function _full_type_expr(name::Symbol, type_params)
+  isempty(type_params) ? :($name) : :($name{$(type_params...)})
+end
+
+_filter_hash_fields(field_syms::Vector{Symbol}) = filter(s -> !startswith(String(s), "_"), field_syms)
+
+function _hash_fields(spec::ReconstructionSpec)
+  syms = Symbol[spec.parameter.name]
+  push!(syms, (f.name for f in spec.state_fields)...)
+  return _filter_hash_fields(syms)
+end
+
+struct ParameterSpec
+  name::Symbol
+  type_params::Vector
+  abstract_base::Union{Symbol, Expr}
+  ismutable::Bool
+  fields::Vector{FieldSpec}
+  validate_body::Union{Expr, Nothing}
+end
+
+struct ChainSpec
+  name::Symbol
+  type_params::Vector{Any}
+  abstract_base::Union{Symbol, Expr}
+  ismutable::Bool
+  fields::Vector{FieldSpec}
+  validate_body::Union{Expr, Nothing}
+end
+
+function _hash_fields(spec::ParameterSpec)
+  syms = Symbol[f.name for f in spec.fields]
+  return _filter_hash_fields(syms)
+end
+
+function _hash_fields(spec::ChainSpec)
+  syms = Symbol[f.name for f in spec.fields]
+  return _filter_hash_fields(syms)
+end
+
+
+function _build_hash_method(spec)
+  fields = _hash_fields(spec)
+
+  # If there are no fields left after filtering, we still hash the type name.
+  field_steps = Any[]
+  for f in fields
+    push!(field_steps,
+      :(h = hash(x.$f, h))
+    )
+  end
+
+  return :(
+    function Base.hash(x::$(spec.name), h::UInt64)
+      h = hash(typeof(x), h)
+      $(field_steps...)
+      return h
+    end
+  )
+end
+
+function define_algorithm(spec::ReconstructionSpec; generate_constructor::Bool=true, generate_hash::Bool=false)
   struct_fields = [
     expr(spec.parameter),
     [expr(field) for field in spec.state_fields]...,
@@ -74,11 +134,7 @@ function define_algorithm(spec::ReconstructionSpec, generate_constructor::Bool=t
   ]
   
   # Build struct definition
-  algo_name_expr = if isempty(spec.type_params)
-    :($(spec.name))
-  else
-    :($(spec.name){$(spec.type_params...)})
-  end
+  algo_name_expr = _full_type_expr(spec.name, spec.type_params)
   
   struct_def = :(
     mutable struct $(algo_name_expr) <: $(spec.abstract_base)
@@ -122,11 +178,14 @@ function define_algorithm(spec::ReconstructionSpec, generate_constructor::Bool=t
     _build_unlock_method(spec),
     _build_parameter_accessor(spec),
   ]
+
+  hash_method = generate_hash ? _build_hash_method(spec) : :()
   
   return quote
     $struct_def
     $ctor
     $(interface_methods...)
+    $hash_method
   end
 end
 
@@ -199,7 +258,7 @@ function _build_parameter_accessor(spec::ReconstructionSpec)
   )
 end
 
-function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr, generate_constructor::Bool)
+function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr; generate_constructor::Bool = true, kwargs...)
   # Check if there's an explicit base type
   if Meta.isexpr(head, :<:)
     algo_head = head.args[1]
@@ -267,61 +326,17 @@ function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr, generate_co
 end
 
 """
-    @reconstruction [constructor={true, false}] struct AlgoName{P <: Params} <: AbstractBase
+    @reconstruction [constructor={true, false}] [hash={true, false}] struct AlgoName{P <: Params} <: AbstractBase
       @parameter parameter::P
       field::Type = default
       field = default
       @init hook!(algo)
     end
 
-Define a stateful algorithm struct with boilerplate automatically generated.
+Config options:
+- `constructor={true,false}` (default: `true`)
+- `hash={true,false}`        (default: `true`)
 
-# Features
-- Automatically generates a mutable struct with infrastructure fields
-- Supports custom abstract base types (defaults to `AbstractImageReconstructionAlgorithm`)
-- Implements interface methods: `Base.put!`, `Base.take!`, `Base.isready`, `Base.wait`, `Base.lock`, `Base.unlock`
-- Optionally generates a simple constructor or allows custom constructor implementation
-- Requires a `@parameter` field
-
-# Configuration Options
-
-- `constructor={true, false}` (default: `true`) — Whether to auto-generate a simple constructor that accepts only the parameter.
-
-  Set to `false` to write a custom constructor (use `@reconstruction_internals` helper).
-
-# Syntax
-
-## Required
-- `@parameter parameter::ParameterType` — Required parameter field
-
-## Optional State Fields
-- `field::Type = default` — Typed field with default value
-- `field = default` — Untyped field (type inferred from default) with default value
-
-## Optional Hooks
-## Optional Hooks
-- `@init hook!(algo)` — Custom initialization hook called after struct construction (receives the new algorithm instance).
-  Only available with default constructor generation.
-
-# Supported Type Syntax
-
-# Examples
-
-```julia
-@reconstruction mutable struct MyAlgorithm <: CustomBase
-  @parameter params::MyParams
-  state::Vector{Float64} = Float64[]
-  counter::Int = 0
-  cache::Dict{String, Any} = Dict()
-  @init initialize_algo!(algo)
-end
-
-function initialize_algo!(algo::MyAlgorithm)
-  ### Custom setup logic
-  algo.cache["initialized"] = true
-end
-```
-The macro supports both struct and mutable struct definitions.
 """
 macro reconstruction(ex...)
   if isempty(ex)
@@ -329,6 +344,7 @@ macro reconstruction(ex...)
   end
   
   generate_constructor = true
+  generate_hash = true
   struct_expr = ex[end]
   
   for i in 1:(length(ex) - 1)
@@ -338,11 +354,13 @@ macro reconstruction(ex...)
       
       if key == :constructor && val isa Bool
         generate_constructor = val
+      elseif key == :hash && val isa Bool
+        generate_hash = val
       else
         error(
           "Configuration should be of form:\n" *
-          "* `constructor=true`\n" *
-          "* `constructor=false`\n" *
+          "* `constructor=true` or `constructor=false`\n" *
+          "* `hash=true` or `hash=false`\n" *
           "got `", ex[i], "`",
         )
       end
@@ -361,44 +379,20 @@ macro reconstruction(ex...)
   algo_head = struct_expr.args[2]
   body_block = struct_expr.args[3]
   
-  spec = parse_algorithm_spec(algo_head, body_block, generate_constructor)
+  spec = parse_algorithm_spec(algo_head, body_block; generate_constructor, generate_hash)
   
-  return esc(define_algorithm(spec, generate_constructor))
+  return esc(define_algorithm(spec; generate_constructor, generate_hash))
 end
-
 
 export @reconstruction_internals
 macro reconstruction_internals(type_name)
   return :((Channel{Any}(Inf),)...)
 end
 
-
-
 export @parameter
-
-struct ParameterSpec
-  name::Symbol
-  type_params::Vector
-  abstract_base::Union{Symbol, Expr}
-  ismutable::Bool
-  fields::Vector{FieldSpec}
-  validate_body::Union{Expr, Nothing}
-end
-
-struct ChainSpec
-  name::Symbol
-  type_params::Vector{Any}
-  abstract_base::Union{Symbol, Expr}
-  ismutable::Bool
-  fields::Vector{FieldSpec}
-  validate_body::Union{Expr, Nothing}
-end
-
 function _build_struct_definition(spec::Union{ParameterSpec, ChainSpec})
     # Build full type expr: Name or Name{T...}
-  full_type_expr = isempty(spec.type_params) ?
-                   :($(spec.name)) :
-                   :($(spec.name){$(spec.type_params...)})
+  full_type_expr = _full_type_expr(spec.name, spec.type_params)
 
   # Struct head: Name{...} <: AbstractImageReconstructionParameters (or custom base)
   struct_head = :( $full_type_expr <: $(spec.abstract_base) )
@@ -424,11 +418,8 @@ end
 
 function _build_validation_method(spec::Union{ParameterSpec, ChainSpec})
   # Build full type expr: Name or Name{T...}
-  full_type_expr = isempty(spec.type_params) ?
-                   :($(spec.name)) :
-                   :($(spec.name){$(spec.type_params...)})
+  full_type_expr = _full_type_expr(spec.name, spec.type_params)
 
-  
   validation_method = :()
   if !isnothing(spec.validate_body)
     validate_block = spec.validate_body
@@ -516,30 +507,58 @@ function parse_parameter_spec(head::Union{Symbol, Expr},
   )
 end
 
-function define_parameter(spec::ParameterSpec)
+function define_parameter(spec::ParameterSpec; generate_hash::Bool=false)
   struct_def = _build_struct_definition(spec)
-
   validation_method = _build_validation_method(spec)
-
   kw_constructor = _build_kwarg_constructor(spec)
+  hash_method = generate_hash ? _build_hash_method(spec) : :()
   
   return quote
     $struct_def
     $kw_constructor
     $validation_method
+    $hash_method
   end
 end
 
-macro parameter(struct_expr)
+macro parameter(ex...)
+  if isempty(ex)
+    error("@parameter requires a struct definition")
+  end
+  generate_hash = true
+  struct_expr = ex[end]
+
+  for i in 1:(length(ex) - 1)
+    if ex[i] isa Expr && ex[i].head == :(=)
+      key = ex[i].args[1]
+      val = ex[i].args[2]
+      if key == :hash && val isa Bool
+        generate_hash = val
+      else
+        error(
+          "Configuration should be of form:\n" *
+          "* `hash=true` or `hash=false`\n" *
+          "got `", ex[i], "`",
+        )
+      end
+    else
+      error(
+        "Configuration should be of form: `key=value`\n" *
+        "got `", ex[i], "`",
+      )
+    end
+  end
+
   if !Meta.isexpr(struct_expr, :struct)
     error("@parameter must be applied to a struct definition")
   end
+
   ismutable  = struct_expr.args[1]
   head_expr  = struct_expr.args[2]
   body_block = struct_expr.args[3]
 
   spec = parse_parameter_spec(head_expr, body_block, ismutable)
-  return esc(define_parameter(spec))
+  return esc(define_parameter(spec; generate_hash=generate_hash))
 end
 
 function parse_chain_spec(head::Union{Symbol, Expr},
@@ -593,12 +612,11 @@ function parse_chain_spec(head::Union{Symbol, Expr},
   )
 end
 
-function define_chain(spec::ChainSpec)
+function define_chain(spec::ChainSpec; generate_hash::Bool=false)
   struct_def = _build_struct_definition(spec)
-
   validation_method = _build_validation_method(spec)
-
   kw_constructor = _build_kwarg_constructor(spec)
+  hash_method = generate_hash ? _build_hash_method(spec) : :()
 
   chain_method = :(
     function (param::$(spec.name))(algo::AbstractImageReconstructionAlgorithm, inputs...)
@@ -616,61 +634,61 @@ function define_chain(spec::ChainSpec)
     end
   )
 
-  
   return quote
     $struct_def
     $kw_constructor
     $validation_method
     $chain_method
     $chain_method_pure
+    $hash_method
   end
-
 end
 
 export @chain
+
 """
-    @chain struct Name{...} <: AbstractImageReconstructionParameters
-        step1::P1 [= default1]
-        step2::P2 [= default2]
-        ...
+    @chain [hash={true,false}] struct Name{...} <: AbstractImageReconstructionParameters
+      step1::P1 [= default1]
+      step2::P2 [= default2]
+      ...
     end
-
-Define a composite parameter type whose call chains its fields as processing steps.
-
-`@chain` expands the given struct definition into:
-
-  * A plain `struct` (or `mutable struct`) with the same fields.
-  * A keyword constructor
-
-        Name(; step1, step2, ...)
-
-    where fields with `= default` become optional keywords, and fields without
-    defaults are required.
-  * An optional validation step, similar to @parameter
-  * Two call method
-
-        (params::Name)(algo::AbstractImageReconstructionAlgorithm, inputs...)
-        (params::Name)(algo::Type{<:AbstractImageReconstructionAlgorithm}, inputs...)
-
-    that execute:
-
-        result = params.step1(algo, inputs...)
-        result = params.step2(algo, result...)
-        ...
-        return result
-
-Each field is assumed to be a parameter-like object that is callable with
-`(algo, ...)`. The composite type is a subtype of `AbstractImageReconstructionParameters` by default; a different
-abstract base can be specified explicitly
 """
-macro chain(struct_expr)
+macro chain(ex...)
+  if isempty(ex)
+    error("@chain requires a struct definition")
+  end
+  generate_hash = true
+  struct_expr = ex[end]
+
+  for i in 1:(length(ex) - 1)
+    if ex[i] isa Expr && ex[i].head == :(=)
+      key = ex[i].args[1]
+      val = ex[i].args[2]
+      if key == :hash && val isa Bool
+        generate_hash = val
+      else
+        error(
+          "Configuration should be of form:\n" *
+          "* `hash=true` or `hash=false`\n" *
+          "got `", ex[i], "`",
+        )
+      end
+    else
+      error(
+        "Configuration should be of form: `key=value`\n" *
+        "got `", ex[i], "`",
+      )
+    end
+  end
+
   if !Meta.isexpr(struct_expr, :struct)
     error("@chain must be applied to a struct definition")
   end
+
   ismutable  = struct_expr.args[1]
   head_expr  = struct_expr.args[2]
   body_block = struct_expr.args[3]
 
   spec = parse_chain_spec(head_expr, body_block, ismutable)
-  return esc(define_chain(spec))
+  return esc(define_chain(spec; generate_hash=generate_hash))
 end

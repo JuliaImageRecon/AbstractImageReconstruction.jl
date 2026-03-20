@@ -13,10 +13,6 @@
     value::Int64 = 1
   end
 
-  # Implement proper hashing for algorithm, otherwise hash will ignore changes to value
-  function Base.hash(algo::CacheableAlgorithm, h::UInt64)
-    return hash(typeof(algo), hash(algo.value, hash(algo.parameter, h)))
-  end
   function (parameter::CacheableParameter)(algo::CacheableAlgorithm, value)
     parameter.cache_misses[] += 1
     return algo.value + parameter.factor * value
@@ -191,6 +187,55 @@
     resize!(copy1, 42)
 
     @test copy2.cache.maxsize == 42
+  end
+
+
+  @testset "Hashing" begin
+    # Algorithm hash:
+    #  - depends on parameter and state fields (e.g. `value`)
+    #  - does NOT depend on internal fields starting with "_" (e.g. `_channel`)
+
+    param = CacheableParameter(3, Ref(0))
+    algo1 = CacheableAlgorithm(param)
+    algo2 = CacheableAlgorithm(param)
+
+    # Different instances -> different channels
+    @test algo1 !== algo2
+    @test algo1._channel !== algo2._channel
+    @test hash(algo1) == hash(algo2)
+
+    # Changing a state field (`value`) changes the hash
+    h_before = hash(algo1)
+    algo1.value += 1
+    @test hash(algo1) != h_before
+
+    @parameter mutable struct HashParam <: AbstractImageReconstructionParameters
+      a::Int
+      _b::Int
+    end
+    p = HashParam(1, 2)
+    h_param = hash(p)
+    p._b = 42
+    @test hash(p) == h_param
+    p.a = 7
+    @test hash(p) != h_param
+
+    # Falls back to objectid based hash
+    @parameter hash = false mutable struct NoHashParam <: AbstractImageReconstructionParameters
+      a::Int64 = 42
+    end
+    p = NoHashParam()
+    p2 = NoHashParam()
+    @test hash(p) != hash(p2)
+
+    @reconstruction hash = false mutable struct NoHashAlgorithm{P} <: AbstractImageReconstructionAlgorithm
+      @parameter parameter::Union{P, ProcessResultCache{P}}
+      value::Int64 = 1
+    end
+    algo = NoHashAlgorithm(p)
+    algo2 = NoHashAlgorithm(p)
+    @test hash(algo) != hash(algo2)
+
   end
 
 end
