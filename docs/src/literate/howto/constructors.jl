@@ -2,7 +2,8 @@
 
 # The `@reconstruction` macro provides two mechanisms for customizing how algorithms are constructed:
 
-# the `@init` hook for simple initialization after struct creation, and custom constructors for complex type-parameter resolution.
+# - The `@init` hook for simple initialization after struct creation
+# - Custom constructors for complex type-parameter resolution
 
 # ## Using @init for Simple Initialization
 

@@ -21,7 +21,7 @@ abstract type AbstractIterativeRadonReconstructionParameters <: AbstractRadonRec
   shape::NTuple{N, Int64} 
   angles::Vector{Float64}
 end
-# The parameters of this struct can be grouped into three catergories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.
+# The parameters of this struct can be grouped into three categories. The solver type just specifies which solver to use. The number of iterations and the regularization term could be abstracted into a nested `AbstractRadonParameter` which describe the parameters for the solver. Lastly the shape and angles are required to construct the linear operator.
 
 # Since we want to construct the linear operator only once, we will write the `process` method with the operator as a given argument:
 function (params::IterativeRadonReconstructionParameters{T})(::Type{<:AbstractIterativeRadonAlgorithm}, op, data::AbstractArray{T, 4}) where {T}

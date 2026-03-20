@@ -37,15 +37,15 @@
     @test cache2.cache.maxsize == cache3.cache.maxsize
   end
 
-  @testset "Stateful Process" begin
-    uncached_parameter = CacheableParameter(3, Ref(0))    
-    algo = CacheableAlgorithm(uncached_parameter)
+   @testset "Stateful Process" begin
+     uncached_parameter = CacheableParameter(3, Ref(0))    
+     algo = CacheableAlgorithm(uncached_parameter)
 
-    cache_misses = Ref(0)
-    cached_parameter = CacheableParameter(3, cache_misses)
-    cache = ProcessResultCache(; param = cached_parameter, maxsize = 1)
-    cached_algo = CacheableAlgorithm(cache)
-    # Inital reco misses cache
+     cache_misses = Ref(0)
+     cached_parameter = CacheableParameter(3, cache_misses)
+     cache = ProcessResultCache(; param = cached_parameter, maxsize = 1)
+     cached_algo = CacheableAlgorithm(cache)
+     # Initial reco misses cache
     @test reconstruct(algo, 42) == reconstruct(cached_algo, 42)
     @test cache_misses[] == 1
     cache_misses[] = 0
