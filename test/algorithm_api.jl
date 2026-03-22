@@ -683,3 +683,84 @@ end
     @test chain(DummyAlgo, 3.0) == ((3.0 + 1.0) * 2.0)^2
   end
 end
+
+@testset "Default error methods for incomplete implementations" begin
+    @testset "Algorithm must implement put!" begin
+      struct NoPutAlgo <: AbstractTestBase
+        parameter::TestParameters
+      end
+      algo = NoPutAlgo(TestParameters())
+      @test_throws ErrorException put!(algo, 1.0)
+      @test_throws ErrorException put!(algo, 1.0, 2.0)
+    end
+
+    @testset "Algorithm must implement take!" begin
+      struct NoTakeAlgo <: AbstractTestBase
+        parameter::TestParameters
+      end
+      function Base.put!(notake::NoTakeAlgo, inputs)
+        # NOP
+      end
+      algo = NoTakeAlgo(TestParameters())
+      @test_throws ErrorException take!(algo)
+    end
+
+    @testset "Algorithm must implement isready" begin
+      struct NoIsreadyAlgo <: AbstractTestBase
+        parameter::TestParameters
+      end
+      algo = NoIsreadyAlgo(TestParameters())
+      @test_throws ErrorException isready(algo)
+    end
+
+    @testset "Algorithm must implement wait" begin
+      struct NoWaitAlgo <: AbstractTestBase
+        parameter::TestParameters
+      end
+      algo = NoWaitAlgo(TestParameters())
+      @test_throws ErrorException wait(algo)
+    end
+
+    @testset "Algorithm must implement lock" begin
+      struct NoLockAlgo <: AbstractTestBase
+        parameter::TestParameters
+      end
+      algo = NoLockAlgo(TestParameters())
+      @test_throws ErrorException lock(algo)
+      @test_throws ErrorException unlock(algo)
+    end
+
+    @testset "Algorithm must implement parameter" begin
+      struct NoParamAlgo <: AbstractTestBase
+        parameter::TestParameters
+      end
+      algo = NoParamAlgo(TestParameters())
+      @test_throws ErrorException parameter(algo)
+    end
+
+    @testset "reconstruct() fails with incomplete algorithm" begin
+      struct IncompleteReconstructAlgo <: AbstractTestBase
+          parameter::TestParameters
+      end
+      algo = IncompleteReconstructAlgo(TestParameters())
+      @test_throws ErrorException reconstruct(algo, 1.0)
+    end
+
+    #@testset "Custom utility parameter without process throws error" begin
+    #    struct BadUtilityParam <: AbstractUtilityReconstructionParameters{TestParameters}
+    #        param::TestParameters
+    #    end
+    #    
+    #    utility = BadUtilityParam(TestParameters())
+    #    
+    #    @test_throws ErrorException utility(AbstractImageReconstructionAlgorithm, 1.0) skip = true
+    #end
+
+    @testset "Custom utility parameter without parameter throws error" begin
+      struct BadUtilityParamNoParam <: AbstractUtilityReconstructionParameters{TestParameters}
+          value::Int
+      end
+      utility = BadUtilityParamNoParam(42)
+      @test_throws ErrorException parameter(utility)
+    end
+end
