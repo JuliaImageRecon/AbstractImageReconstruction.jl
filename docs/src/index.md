@@ -75,9 +75,7 @@ Algorithms can be extended either by defining new parameter types (new processin
 
 ### Getting Started
 
-For a complete walkthrough of implementing a reconstruction package, see:
-
-- [OurRadonReco](example_intro.md) - Overview of the example package
+Most of the remaining documentation of the package is presented in the form a simple radon based image reconstruction package.
 
 ### Core Concepts
 
@@ -177,7 +175,7 @@ Control parallel execution strategies:
 
 For a complete reconstruction package implementation:
 
-- [OurRadonReco](generated/example/) - The example package (direct/iterative Radon reconstruction)
+- `OurRadonReco` - The example package (direct/iterative Radon reconstruction)
 - [MPIReco.jl](https://github.com/MagneticParticleImaging/MPIReco.jl) - Implementation for MPI
 
 ### API Reference
