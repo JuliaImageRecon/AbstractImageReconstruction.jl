@@ -23,16 +23,13 @@ Concrete construction of reconstruction algorithms depends on the implementation
 ```julia
 using AbstractImageReconstruction, MPIReco
 
-```julia
-using AbstractImageReconstruction, MPIReco
-
 params = ... # Setup reconstruction parameter
 algo = ... # Setup chosen algorithm with params
 raw = ... # Setup raw data
 
 image = reconstruct(algo, raw)
 ```
-```
+
 Once an algorithm is constructed it can be transformed into a `RecoPlan`. These are mutable and transparent wrappers around the nested types of the algorithm and its parameters, that can be stored and restored to and from TOML files.
 
 ```julia
