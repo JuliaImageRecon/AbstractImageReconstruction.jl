@@ -488,6 +488,126 @@ end
     @test algo.counter == 42
   end
 
+  @testset "Const fields" begin
+    @reconstruction mutable struct ConstFieldAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      const counter::Int = 0
+    end
+
+    params = TestParameters()
+    algo = ConstFieldAlgo(params)
+
+    @test hasfield(ConstFieldAlgo, :counter)
+    @test algo.counter == 0
+
+    @test_throws ErrorException setproperty!(algo, :counter, 1)
+  end
+
+  @testset "Atomic fields" begin
+    @reconstruction mutable struct AtomicFieldAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      @atomic counter::Int = 0
+    end
+
+    params = TestParameters()
+    algo = AtomicFieldAlgo(params)
+
+    @test hasfield(AtomicFieldAlgo, :counter)
+    @test algo.counter == 0
+
+    @test try @atomic algo.counter = 10
+      true
+    catch 
+      false
+    end
+    @test algo.counter == 10
+  end
+
+  @testset "Fields without type information" begin
+    @reconstruction mutable struct UntypedFieldAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      cache = Dict()
+      counter = 0
+      name = "untyped"
+    end
+
+    params = TestParameters()
+    algo = UntypedFieldAlgo(params)
+
+    @test hasfield(UntypedFieldAlgo, :cache)
+    @test hasfield(UntypedFieldAlgo, :counter)
+    @test hasfield(UntypedFieldAlgo, :name)
+
+    @test algo.cache == Dict()
+    @test algo.counter == 0
+    @test algo.name == "untyped"
+
+    algo.name = 42
+    @test algo.name == 42
+    algo.counter = "untyped"
+    @test algo.counter == "untyped"
+    algo.cache = nothing
+    @test algo.cache === nothing
+  end
+
+  @testset "Mixed field types" begin
+    @reconstruction mutable struct MixedFieldAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      const id::Int = 1
+      @atomic count::Int = 0
+      data = nothing
+      buffer::Vector{Int} = Int[]
+    end
+
+    params = TestParameters()
+    algo = MixedFieldAlgo(params)
+
+    @test algo.id == 1
+    @test algo.count == 0
+    @test algo.data === nothing
+    @test algo.buffer == Int[]
+
+    @test try @atomic algo.count = 5
+      true
+    catch 
+      false
+    end
+    @test algo.count == 5
+
+    algo.data = "some data"
+    @test algo.data == "some data"
+
+    algo.buffer = [1, 2, 3]
+    @test algo.buffer == [1, 2, 3]
+  end
+
+  @testset "Error: field without default and constructor=true" begin
+    @test_throws LoadError eval(quote
+      @reconstruction mutable struct NoDefaultAlgo <: AbstractTestBase
+        @parameter parameter::TestParameters
+        field_without_default::Int
+      end
+    end)
+  end
+
+  @testset "Constructor=false allows fields without defaults" begin
+    @reconstruction constructor = false struct NoDefaultConstructorAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+      computed_value::Float64
+    end
+
+    function NoDefaultConstructorAlgo(params::TestParameters, value::Float64 = 0.2)
+      computed = value * params.value
+      return NoDefaultConstructorAlgo(params, computed, @reconstruction_internals NoDefaultConstructorAlgo)
+    end
+
+    params = TestParameters(value=3.0)
+    algo = NoDefaultConstructorAlgo(params, 7.0)
+
+    @test algo.parameter === params
+    @test algo.computed_value == 21.0
+  end
+
 end
 
 

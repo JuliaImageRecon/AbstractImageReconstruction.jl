@@ -11,16 +11,17 @@ struct FieldSpec
 end
 
 function FieldSpec(ex; name = notspecified, type = notspecified, isconst = false, isatomic = false, default = notspecified)
+    if Meta.isexpr(ex, :macrocall) && ex.args[1] == Symbol("@atomic")
+      isatomic = true
+      ex = ex.args[3]
+    end
+    
     if Meta.isexpr(ex, :const)
         isconst = true
         ex = ex.args[1]
     end
     if Meta.isexpr(ex, :(=))
         default = ex.args[2]
-        ex = ex.args[1]
-    end
-    if Meta.isexpr(ex, :atomic)
-        isatomic = true
         ex = ex.args[1]
     end
     if ex isa Symbol
@@ -293,6 +294,12 @@ function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr; generate_co
         parameter = FieldSpec(param_spec; isconst = true)
       elseif macro_name == Symbol("@init")
         init_hook = item.args[3]
+      elseif macro_name == Symbol("@atomic")
+        # Try to parse as a field definition
+        result = FieldSpec(item)
+        if !isnothing(result)
+          push!(state_fields, result)
+        end
       else
         @warn "Unexpected macro call $macro_name"
       end
@@ -311,7 +318,7 @@ function parse_algorithm_spec(head::Union{Symbol, Expr}, body::Expr; generate_co
 
   for field in state_fields
     if field.default === notspecified && generate_constructor
-      error("Field '$(field[1])' has no default value. " *
+      error("Field '$(field.name)' has no default value. " *
             "Provide a default and use @init for custom initialization or provide a custom constructor.")
     end
   end
