@@ -1,0 +1,14 @@
+_module = "Main.__atexample__named__storage.OurRadonReco"
+_type = "RecoPlan{IterativeRadonAlgorithm}"
+
+[parameter]
+_module = "Main.__atexample__named__storage.OurRadonReco"
+_type = "RecoPlan{IterativeRadonParameters}"
+
+    [parameter.reco]
+    _module = "Main.__atexample__named__storage.OurRadonReco"
+    _type = "RecoPlan{IterativeRadonReconstructionParameters}"
+
+    [parameter.pre]
+    _module = "Main.__atexample__named__storage.OurRadonReco"
+    _type = "RecoPlan{RadonPreprocessingParameters}"
