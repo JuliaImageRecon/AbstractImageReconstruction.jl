@@ -1,6 +1,6 @@
 name = "AbstractImageReconstruction"
 uuid = "a4b4fdbf-6459-4ec9-990d-77e1fa24a91b"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["nHackel <nHackel@users.noreply.github.com> and contributors"]
 
 [deps]

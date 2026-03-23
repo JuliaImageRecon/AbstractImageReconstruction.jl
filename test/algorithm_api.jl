@@ -50,6 +50,18 @@ end
     @test algo.parameter === params
   end
 
+  @testset "Documented  @reconstruction algorithm" begin
+    """
+        Docstring to describe what algorithm is for
+    """
+    @reconstruction mutable struct DocumentedAlgo <: AbstractTestBase
+      @parameter parameter::TestParameters
+    end
+    
+    # Check struct exists
+    @test @isdefined DocumentedAlgo
+  end
+
   @testset "Nested Parametric algorithm definition" begin
     abstract type ParametricBase{P} <: AbstractTestBase end
     @reconstruction struct ParametricAlgo{P} <: ParametricBase{P}
@@ -758,6 +770,18 @@ end
     algo_instance = DummyAlgo()
     result_instance = chain(algo_instance, 4.0)
     @test result_instance == result_type_based
+  end
+
+  @testset "Documented parameter" begin
+    """
+        This is a test string
+    """
+    @parameter struct DocChain <: AbstractTestParameters
+      add::AddParams
+      mul::MulParams
+    end
+
+    @test @isdefined DocChain
   end
 
   @testset "Parametric chain with custom base" begin

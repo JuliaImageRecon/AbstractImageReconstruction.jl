@@ -142,6 +142,8 @@ function define_algorithm(spec::ReconstructionSpec; generate_constructor::Bool=t
       $(struct_fields...)
     end
   )
+
+  struct_def = :($Base.@__doc__ $struct_def)
   
   ctor = if generate_constructor
     field_defaults = [field.default for field in spec.state_fields]
