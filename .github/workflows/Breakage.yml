@@ -27,7 +27,7 @@ jobs:
         with:
           version: 1
           arch: x64
-      - uses: actions/cache@v668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         env:
           cache-name: cache-artifacts
         with:
