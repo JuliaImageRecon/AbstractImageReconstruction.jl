@@ -43,10 +43,6 @@ end
 # Each iteration produces a complete RecoPlan with the field value set:
 sweep[3].parameter.reco.iterations
 
-# Sweeps also can indexed with round brackets to see which value they (would) change:
-sweep_solver(1)
-
-
 # ## Using the `@plan_sweep` Macro
 # The `@plan_sweep` macro provides a more convenient syntax using assignment notation:
 sweep_macro = @plan_sweep(plan_template.parameter.reco.iterations = [1, 5, 10, 20])
