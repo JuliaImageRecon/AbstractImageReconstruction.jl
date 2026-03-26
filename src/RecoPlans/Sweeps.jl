@@ -175,6 +175,14 @@ Base.eltype(sweep::PlanSweep) = typeof(root(sweep.plan))
 Base.eltype(sweep::ProdSweep) = eltype(first(sweep.sweeps))
 Base.eltype(sweep::ZipSweep) = eltype(first(sweep.sweeps))
 
+Base.firstindex(sweep::PlanSweep) = 1
+Base.firstindex(sweep::ProdSweep) = 1
+Base.firstindex(sweep::ZipSweep) = 1
+Base.lastindex(sweep::PlanSweep) = length(sweep)
+Base.lastindex(sweep::ProdSweep) = length(sweep)
+Base.lastindex(sweep::ZipSweep) = length(sweep)
+
+
 Base.iterate(sweep::PlanSweep) = (getindex(sweep, 1), 2)
 function Base.iterate(sweep::PlanSweep, i::Int)
   if i > length(sweep.values)

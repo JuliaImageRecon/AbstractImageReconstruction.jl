@@ -171,6 +171,16 @@ Control parallel execution strategies:
 - Thread safety considerations for stateful algorithms
 - See [Multi-Threading](generated/howto/multi_threading.md)
 
+#### Parameter Sweeps
+
+Systematic exploration of reconstruction parameters:
+
+- Iterate over RecoPlan templates with different parameter values
+- `@plan_sweep` macro for convenient syntax
+- Grid search with `Iterators.product` for parameter combinations
+- Zipped sweeps with `Iterators.zip` for parallel parameter iteration
+- See [Parameter Sweeps](generated/howto/sweeps.md)
+
 ### Complete Examples
 
 For a complete reconstruction package implementation:

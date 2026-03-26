@@ -42,6 +42,7 @@ makedocs(
             "Caching" => "generated/howto/caching.md",
             "Observables" => "generated/howto/observables.md",
             "Multi-Threading" => "generated/howto/multi_threading.md",
+            "Parameter Sweeps" => "generated/howto/sweeps.jl",
             "Plan Storage and Usability" => "generated/howto/storage.md",
         ],
         "API Reference" => "API/api.md",
