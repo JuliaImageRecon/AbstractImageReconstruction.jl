@@ -93,15 +93,28 @@ function root(plan::RecoPlan)
   end
   return p
 end
+function subplan_at(root_plan::AbstractRecoPlan, path::Vector{Symbol})
+    p = root_plan
+    for name in path
+        p = getproperty(p, name)
+    end
+    return p
+end
+
 
 function Base.getindex(sweep::PlanSweep, i::Int)
   if i < 1 || i > length(sweep.values)
-    throw(IndexError("index $i out of range [1, $(length(sweep.values))]"))
+      throw(IndexError("index $i out of range [1, $(length(sweep.values))]"))
   end
-  
-  setproperty!(sweep.plan, sweep.field, sweep.values[i])
-  return root(sweep.plan)
+  # Create copy from root, then find copy of "self" and set new value
+  base_root = root(sweep.plan)
+  p = copy(base_root)
+  path = parentproperties(sweep.plan)  # from root(base_root) to sweep.plan
+  sub = subplan_at(p, path)
+  setproperty!(sub, sweep.field, sweep.values[i])
+  return p
 end
+
 
 function (sweep::PlanSweep)(i::Int)
   if i < 1 || i > length(sweep.values)
@@ -126,18 +139,32 @@ function (sweep::ZipSweep)(i::Int)
 end
 
 function Base.getindex(sweep::ProdSweep, i::Int)
+  if i < 1 || i > length(sweep)
+      throw(IndexError("index $i out of range [1, $(length(sweep))]"))
+  end
+  base_root = root(sweep.sweeps[1].plan)
+  p = copy(base_root)
   indices = Tuple(CartesianIndices(Tuple(length.(sweep.sweeps))))[i].I
   for (sweep_i, idx) in zip(sweep.sweeps, indices)
-    setproperty!(sweep_i.plan, sweep_i.field, sweep_i.values[idx])
+    path = parentproperties(sweep_i.plan)
+    sub  = subplan_at(p, path)
+    setproperty!(sub, sweep_i.field, sweep_i.values[idx])
   end
-  return root(sweep.sweeps[1].plan)
+  return p
 end
 
 function Base.getindex(sweep::ZipSweep, i::Int)
-  for sweep_i in sweep.sweeps
-    setproperty!(sweep_i.plan, sweep_i.field, sweep_i.values[i])
+  if i < 1 || i > length(sweep)
+      throw(IndexError("index $i out of range [1, $(length(sweep))]"))
   end
-  return root(sweep.sweeps[1].plan)
+  base_root = root(sweep.sweeps[1].plan)
+  p = copy(base_root)
+  for sweep_i in sweep.sweeps
+    path = parentproperties(sweep_i.plan)
+    sub  = subplan_at(p, path)
+    setproperty!(sub, sweep_i.field, sweep_i.values[i])
+  end
+  return p
 end
 
 Base.length(sweep::PlanSweep) = length(sweep.values)
@@ -206,7 +233,7 @@ function create_plan_sweep(ex)
       error("Expected plan.field notation, got $lhs")
     end
     
-    if length(fields) == 2
+    if length(fields) == 1
       parent_plan = base
       sweep_field = fields[1]
     else
@@ -265,7 +292,7 @@ function Iterators.product(sweeps::PlanSweep...)
     end
     push!(seen, key)
   end
-  
+
   return ProdSweep(collect(sweeps))
 end
 
