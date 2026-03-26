@@ -20,4 +20,5 @@ abstract type AbstractTestParameters <: AbstractImageReconstructionParameters en
   include("serialization.jl")
   include("linkedproperty.jl")
   include("caching.jl")
+  include("reco_plan_sweeps.jl")
 end

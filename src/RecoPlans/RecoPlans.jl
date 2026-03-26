@@ -213,6 +213,29 @@ function clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImag
 end
 clear!(plan::RecoPlan{T}, preserve::Bool = true) where {T<:AbstractImageReconstructionAlgorithm} = clear!(plan.parameter, preserve)
 
+function Base.copy(plan::RecoPlan{T}) where {T}
+  # Old storage
+  old_vals = getfield(plan, :values)
+
+  # New observables and empty values
+  new_plan = RecoPlan(T)
+  
+  for (name, obs) in old_vals
+    v = obs[]
+    new_v = if v isa RecoPlan
+      copy(v) # recursively clone RecoPlan subtree
+    elseif v isa AbstractArray{<:AbstractRecoPlan}
+      map(copy, v)
+    else
+      v # share proper values
+    end
+    # Reuse type-checking and parent construction
+    Base.setproperty!(new_plan, name, new_v)
+  end
+
+  return new_plan
+end
+
 
 export parent!, parentproperty, parentproperties
 """
@@ -329,3 +352,4 @@ include("Serialization.jl")
 include("Show.jl")
 include("Listeners.jl")
 include("Cache.jl")
+include("Sweeps.jl")

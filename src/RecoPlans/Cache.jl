@@ -11,7 +11,7 @@ the inputs.
 
 The same `ProcessResultCache` instance can be shared between algorithms constructed from the
 same plan. The cache is transparent with respect to the properties of the underlying
-parameter. Cached entries can be invalidated by calling `empty!(params)`
+parameter. Cached entries can be invalidated by calling `empty!(params)`. (Shallow) copies a RecoPlan{ProcessCache} share a cache instance.
 """
 mutable struct ProcessResultCache{P} <: AbstractUtilityReconstructionParameters{P}
   param::P
@@ -164,6 +164,31 @@ function Base.resize!(cache::ProcessResultCache, n)
 end
 function Base.hash(parameter::ProcessResultCache, h::UInt64)
   return hash(typeof(parameter), hash(parameter.maxsize, hash(parameter.param, h)))
+end
+
+function Base.copy(plan::RecoPlan{T}) where {T<:ProcessResultCache}
+  # Old storage
+  old_vals = getfield(plan, :values)
+
+  # New observables and empty values
+  new_plan = RecoPlan(T)
+  
+  # Similar to normal copy, except we share the underlying cache as well
+    for (name, obs) in old_vals
+      v = obs[]
+      new_v = if name === :cache 
+        v # share cache
+      elseif (v isa RecoPlan) 
+        copy(v)
+      elseif (v isa AbstractArray{<:AbstractRecoPlan}) 
+        map(copy, v)
+      else
+        v  # share non-plan values
+      end
+      Base.setproperty!(new_plan, name, new_v)
+    end
+  
+  return new_plan
 end
 
 
