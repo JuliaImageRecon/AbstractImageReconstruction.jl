@@ -502,7 +502,11 @@ function _build_validation_method(spec::Union{ParameterSpec, ChainSpec})
   return validation_method
 end
 
-function _build_kwarg_constructor(spec::Union{ParameterSpec, ChainSpec})  
+function _build_kwarg_constructor(spec::Union{ParameterSpec, ChainSpec}; generate_constructor::Bool=true)
+  if !generate_constructor
+    return :()
+  end
+
   kwargs = [kw(field) for field in spec.fields]
 
   # Empty fields result in stackoverflow
@@ -572,10 +576,18 @@ function parse_parameter_spec(head::Union{Symbol, Expr},
   )
 end
 
-function define_parameter(spec::ParameterSpec; generate_hash::Bool=false)
+function define_parameter(spec::ParameterSpec; generate_constructor::Bool=true, generate_hash::Bool=false)
+  if !generate_constructor
+    fields_with_defaults = [f.name for f in spec.fields if f.default !== notspecified]
+    if !isempty(fields_with_defaults)
+      @warn "Fields with default values ($fields_with_defaults) will not be available " *
+            "via keyword arguments when constructor=false. Handle defaults in your custom constructor."
+    end
+  end
+
   struct_def = _build_struct_definition(spec)
   validation_method = _build_validation_method(spec)
-  kw_constructor = _build_kwarg_constructor(spec)
+  kw_constructor = _build_kwarg_constructor(spec; generate_constructor)
   hash_method = generate_hash ? _build_hash_method(spec) : :()
   
   return quote
@@ -587,7 +599,7 @@ function define_parameter(spec::ParameterSpec; generate_hash::Bool=false)
 end
 
 """
-    @parameter [hash={true,false}] (mutable) struct Name{...} <: AbstractImageReconstructionParameters
+    @parameter [constructor={true,false}] [hash={true,false}] (mutable) struct Name{...} <: AbstractImageReconstructionParameters
       field1::Type1 [= default1]
       field2::Type2 [= default2]
       ...
@@ -606,6 +618,10 @@ The `@parameter` macro generates:
 
 # Configuration Options
 
+- `constructor=true` (default) - Auto-generate a keyword constructor
+- `constructor=false` - No keyword constructor generated (write custom constructor)
+- **Note**: When using `constructor=false` with fields that have default values (e.g., `field::Int = 10`), those defaults are NOT available via keyword arguments. Handle defaults in your custom constructor.
+- **Note**: When using `constructor=false` with `@validate`, you must manually call `validate!` in your custom constructor.
 - `hash=true` (default) - Generate a `hash` method for the parameter type
 - `hash=false` - Do not generate a `hash` method
 
@@ -631,9 +647,18 @@ The `@parameter` macro generates:
   end
 end
 
-# Mutable parameter with hash disabled
-@parameter hash=false mutable struct MutableParameters
-  cache::Dict{String, Any} = Dict()
+# Parameter without auto-generated constructor
+@parameter constructor=false struct CustomParams
+  field::Int
+  @validate begin
+    @assert field > 0 "field must be positive"
+  end
+end
+
+function CustomParams(;field::Int)
+  params = CustomParams(field)
+  validate!(params)  # Must call manually when constructor=false
+  return params
 end
 ```
 """
@@ -641,6 +666,7 @@ macro parameter(ex...)
   if isempty(ex)
     error("@parameter requires a struct definition")
   end
+  generate_constructor = true
   generate_hash = true
   struct_expr = ex[end]
 
@@ -648,11 +674,14 @@ macro parameter(ex...)
     if ex[i] isa Expr && ex[i].head == :(=)
       key = ex[i].args[1]
       val = ex[i].args[2]
-      if key == :hash && val isa Bool
+      if key == :constructor && val isa Bool
+        generate_constructor = val
+      elseif key == :hash && val isa Bool
         generate_hash = val
       else
         error(
           "Configuration should be of form:\n" *
+          "* `constructor=true` or `constructor=false`\n" *
           "* `hash=true` or `hash=false`\n" *
           "got `", ex[i], "`",
         )
@@ -674,7 +703,7 @@ macro parameter(ex...)
   body_block = struct_expr.args[3]
 
   spec = parse_parameter_spec(head_expr, body_block, ismutable)
-  return esc(define_parameter(spec; generate_hash=generate_hash))
+  return esc(define_parameter(spec; generate_constructor, generate_hash))
 end
 
 function parse_chain_spec(head::Union{Symbol, Expr},
@@ -728,10 +757,18 @@ function parse_chain_spec(head::Union{Symbol, Expr},
   )
 end
 
-function define_chain(spec::ChainSpec; generate_hash::Bool=false)
+function define_chain(spec::ChainSpec; generate_constructor::Bool=true, generate_hash::Bool=false)
+  if !generate_constructor
+    fields_with_defaults = [f.name for f in spec.fields if f.default !== notspecified]
+    if !isempty(fields_with_defaults)
+      @warn "Fields with default values ($fields_with_defaults) will not be available " *
+            "via keyword arguments when constructor=false. Handle defaults in your custom constructor."
+    end
+  end
+
   struct_def = _build_struct_definition(spec)
   validation_method = _build_validation_method(spec)
-  kw_constructor = _build_kwarg_constructor(spec)
+  kw_constructor = _build_kwarg_constructor(spec; generate_constructor)
   hash_method = generate_hash ? _build_hash_method(spec) : :()
 
   chain_method = :(
@@ -763,7 +800,7 @@ end
 export @chain
 
 """
-    @chain [hash={true,false}] struct Name{...} <: AbstractImageReconstructionParameters
+    @chain [constructor={true,false}] [hash={true,false}] struct Name{...} <: AbstractImageReconstructionParameters
       step1::P1 [= default1]
       step2::P2 [= default2]
       ...
@@ -788,6 +825,10 @@ return result
 
 # Configuration Options
 
+- `constructor=true` (default) - Auto-generate a keyword constructor
+- `constructor=false` - No keyword constructor generated (write custom constructor)
+- **Note**: When using `constructor=false` with fields that have default values (e.g., `step::Params = Params()`), those defaults are NOT available via keyword arguments. Handle defaults in your custom constructor.
+- **Note**: When using `constructor=false` with `@validate`, you must manually call `validate!` in your custom constructor.
 - `hash=true` (default) - Generate a `hash` method for the parameter type
 - `hash=false` - Do not generate a `hash` method
 
@@ -810,18 +851,26 @@ return result
   reco::RadonBackprojectionParameters
 end
 
-# Usage
-params = CompositeParameters(
-  pre = RadonPreprocessingParameters(frames=collect(1:3)),
-  reco = RadonBackprojectionParameters(angles=angles)
-)
-result = params(algo, data)  # Runs pre then reco
+# Chain without auto-generated constructor
+@chain constructor=false struct CustomChain <: AbstractImageReconstructionParameters
+  step1::StepParams
+  @validate begin
+    @assert step1.value >= 0 "step value must be non-negative"
+  end
+end
+
+function CustomChain(;step1::StepParams)
+  chain = CustomChain(step1)
+  validate!(chain)  # Must call manually when constructor=false
+  return chain
+end
 ```
 """
 macro chain(ex...)
   if isempty(ex)
     error("@chain requires a struct definition")
   end
+  generate_constructor = true
   generate_hash = true
   struct_expr = ex[end]
 
@@ -829,11 +878,14 @@ macro chain(ex...)
     if ex[i] isa Expr && ex[i].head == :(=)
       key = ex[i].args[1]
       val = ex[i].args[2]
-      if key == :hash && val isa Bool
+      if key == :constructor && val isa Bool
+        generate_constructor = val
+      elseif key == :hash && val isa Bool
         generate_hash = val
       else
         error(
           "Configuration should be of form:\n" *
+          "* `constructor=true` or `constructor=false`\n" *
           "* `hash=true` or `hash=false`\n" *
           "got `", ex[i], "`",
         )
@@ -855,5 +907,5 @@ macro chain(ex...)
   body_block = struct_expr.args[3]
 
   spec = parse_chain_spec(head_expr, body_block, ismutable)
-  return esc(define_chain(spec; generate_hash=generate_hash))
+  return esc(define_chain(spec; generate_constructor, generate_hash))
 end

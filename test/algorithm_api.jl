@@ -716,6 +716,52 @@ end
 
     @test_throws AssertionError ValidatedParams(a = 3, b = 2)
   end
+
+  @testset "constructor=false disables keyword constructor" begin
+    @parameter constructor=false struct NoConstructorParams <: AbstractTestParameters
+      value::Float64
+      multiplier::Int
+    end
+
+    @test @isdefined NoConstructorParams
+    
+    # Keyword constructor should NOT be generated
+    @test_throws MethodError NoConstructorParams(value = 1.0)
+    
+    # But positional constructor should still work (Julia default)
+    p = NoConstructorParams(1.0, 2)
+    @test p.value == 1.0
+    @test p.multiplier == 2
+  end
+
+  @testset "constructor=false with @validate requires manual validate! call" begin
+    @parameter constructor=false struct ManualValidateParams <: AbstractTestParameters
+      field::Int
+      @validate begin
+        @assert field > 0 "field must be positive"
+      end
+    end
+
+    # Custom constructor that manually calls validate!
+    function ManualValidateParams(field::Int, validate::Bool)
+      params = ManualValidateParams(field)
+      if validate
+        validate!(params)
+      end
+      return params
+    end
+
+    # Valid case - validation passes
+    p = ManualValidateParams(5, true)
+    @test p.field == 5
+
+    # Invalid case - validation throws
+    @test_throws AssertionError ManualValidateParams(-1, true)
+    
+    # Bypass validation in custom constructor
+    p_bypassed = ManualValidateParams(-1, false)
+    @test p_bypassed.field == -1
+  end
 end
 
 
@@ -825,6 +871,64 @@ end
 
     # ((x + 1) * 2)^2
     @test chain(DummyAlgo, 3.0) == ((3.0 + 1.0) * 2.0)^2
+  end
+
+  @testset "constructor=false disables keyword constructor" begin
+    @chain constructor=false struct NoConstructorChain <: AbstractTestParameters
+      add::AddParams
+      mul::MulParams
+    end
+
+    @test @isdefined NoConstructorChain
+    @test hasfield(NoConstructorChain, :add)
+    @test hasfield(NoConstructorChain, :mul)
+    
+    # Keyword constructor should NOT be generated
+    @test_throws MethodError NoConstructorChain(; add = AddParams(1.0), mul = MulParams(2.0))
+    
+    # But positional constructor should still work
+    chain = NoConstructorChain(AddParams(1.0), MulParams(2.0))
+    @test chain(DummyAlgo, 4.0) == (4.0 + 1.0) * 2.0
+  end
+
+  @testset "constructor=false with @validate requires manual validate! call" begin
+    @parameter struct ValidatedStepParams <: AbstractTestParameters
+      value::Int
+      @validate begin
+        @assert value >= 0 "value must be non-negative"
+      end
+    end
+
+    function (p::ValidatedStepParams)(::Type{<:AbstractImageReconstructionAlgorithm}, x::Float64)
+      return x + Float64(p.value)
+    end
+
+    @chain constructor=false struct ManualValidateChain <: AbstractTestParameters
+      step::ValidatedStepParams
+      @validate begin
+        @assert step.value < 100 "step value must be less than 100"
+      end
+    end
+
+    # Custom constructor that manually calls validate!
+    function ManualValidateChain(step::ValidatedStepParams, validate::Bool)
+      chain = ManualValidateChain(step)
+      if validate
+        validate!(step)
+        validate!(chain)
+      end
+      return chain
+    end
+
+    # Valid case
+    c = ManualValidateChain(ValidatedStepParams(5), true)
+    @test c(DummyAlgo, 10.0) == 15.0
+
+    # Invalid chain validation - step.value >= 100 fails chain validation
+    @test_throws AssertionError ManualValidateChain(ValidatedStepParams(150), true)
+    
+    # Invalid step validation - negative value fails step validation
+    @test_throws AssertionError ManualValidateChain(ValidatedStepParams(-1), true)
   end
 end
 
