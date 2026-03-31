@@ -482,9 +482,6 @@ function _build_struct_definition(spec::Union{ParameterSpec, ChainSpec})
 end
 
 function _build_validation_method(spec::Union{ParameterSpec, ChainSpec})
-  # Build full type expr: Name or Name{T...}
-  full_type_expr = _full_type_expr(spec.name, spec.type_params)
-
   validation_method = :()
   if !isnothing(spec.validate_body)
     validate_block = spec.validate_body
@@ -492,7 +489,7 @@ function _build_validation_method(spec::Union{ParameterSpec, ChainSpec})
     prelude = [:( $(fields.name) = params.$(fields.name) ) for fields in spec.fields]
 
     validation_method = :(
-      function AbstractImageReconstruction.validate!(params::$(full_type_expr))
+      function AbstractImageReconstruction.validate!(params::$(spec.name))
         $(prelude...)
         $(validate_block.args...)
         return params

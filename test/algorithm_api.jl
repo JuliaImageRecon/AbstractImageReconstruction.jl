@@ -717,6 +717,24 @@ end
     @test_throws AssertionError ValidatedParams(a = 3, b = 2)
   end
 
+  @testset "@validate with parametric type" begin
+    @parameter struct ValidatedWithTParams{T} <: AbstractTestParameters
+      a::T
+      b::T
+      @validate begin
+        @assert a < b "a must be less than b"
+      end
+    end
+
+    good = ValidatedWithTParams(a = 1, b = 2)
+    @test_nowarn validate!(good)
+    @test good.a == 1
+    @test good.b == 2
+
+    @test_throws AssertionError ValidatedWithTParams(a = 3, b = 2)
+  end
+
+
   @testset "constructor=false disables keyword constructor" begin
     @parameter constructor=false struct NoConstructorParams <: AbstractTestParameters
       value::Float64
